@@ -1,0 +1,20 @@
+{
+  "name": "My Family | Agenda familiar",
+  "short_name": "My Family",
+  "description": "Agenda, recetas y documentos de la familia.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f4ed",
+  "theme_color": "#176b4d",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "imagenes/logo-myfamily.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

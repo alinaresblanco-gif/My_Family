@@ -4,7 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#176b4d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="My Family">
   <title>My Family | Centro familiar</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="imagenes/logo-myfamily.png">
+  <link rel="apple-touch-icon" href="imagenes/logo-myfamily.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
@@ -56,5 +63,10 @@
   </div>
   <div class="modal-backdrop" id="event-modal"><div class="modal"><button class="modal-close" aria-label="Cerrar">×</button><div class="modal-top"><span class="modal-category">🏥 MÉDICO</span><span class="modal-member"><i class="member-dot papa"></i> Antonio</span></div><h2 id="modal-title">Revisión médica</h2><p class="modal-detail">Hoy, lunes 7 de septiembre · 08:30</p><p class="modal-detail">Centro de salud familiar</p><div class="modal-actions"><button class="secondary-button">Editar</button><button class="primary-button modal-done">✓ Marcar como hecho</button></div></div></div>
   <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+    }
+  </script>
 </body>
 </html>
