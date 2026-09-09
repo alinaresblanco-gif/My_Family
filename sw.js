@@ -5,7 +5,6 @@ const APP_FILES = [
   './styles.css',
   './app.js',
   './manifest.json',
-  './imagenes/logo-myfamily.png',
   './imagenes/logo-myfamily-trans-ok.png'
 ];
 
@@ -29,7 +28,7 @@ self.addEventListener('push', event => {
   const notification = event.data ? event.data.json() : {};
   event.waitUntil(self.registration.showNotification(notification.title || 'My Family', {
     body: notification.body || 'Tienes una nueva notificación.',
-    icon: './imagenes/logo-myfamily.png',
+    icon: './imagenes/logo-myfamily-trans-ok.png',
     data: { url: notification.url || './' }
   }));
 });

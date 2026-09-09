@@ -11,7 +11,7 @@
   "lang": "es",
   "icons": [
     {
-      "src": "imagenes/logo-myfamily.png",
+      "src": "imagenes/logo-myfamily-trans-ok.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any maskable"

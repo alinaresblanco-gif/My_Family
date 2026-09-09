@@ -47,7 +47,7 @@ function closeNotificationsModal() { notificationsModal.classList.remove('open')
 async function enableDeviceNotifications() {
   if (!('Notification' in window)) return;
   const permission = await Notification.requestPermission();
-  if (permission === 'granted') new Notification('Avisos activados', { body: 'Recibirás las nuevas notificaciones de My Family en este dispositivo.', icon: 'imagenes/logo-myfamily.png' });
+  if (permission === 'granted') new Notification('Avisos activados', { body: 'Recibirás las nuevas notificaciones de My Family en este dispositivo.', icon: 'imagenes/logo-myfamily-trans-ok.png' });
 }
 
 function renderEvents(filter = 'todos') {
