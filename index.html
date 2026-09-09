@@ -20,6 +20,9 @@
     .avatar { overflow: hidden; }
     .avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
     .welcome, .welcome strong, .menu-button { color: var(--green); }
+    #view-inicio .page-heading { position: relative; justify-content: center; }
+    #view-inicio .page-heading > div:first-child { text-align: center; }
+    #view-inicio #add-event { position: absolute; right: 0; }
     .notification-modal { max-width: 460px; }
     .notification-modal h2 { margin: 8px 0 4px; }
     .notification-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-right: 25px; }
@@ -40,6 +43,7 @@
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .form-error { min-height: 16px; color: #ba3f34; font-size: 12px; margin: 10px 0 0; }
     .event-form .modal-actions { margin-top: 18px; }
+    @media (max-width: 800px) { #view-inicio .page-heading { position: static; } #view-inicio .page-heading > div:first-child { width: 100%; } #view-inicio #add-event { position: static; } }
     @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; gap: 0; } }
   </style>
 </head>
@@ -69,7 +73,7 @@
       </header>
 
       <section id="view-inicio" class="view active-view">
-        <div class="page-heading"><div><p class="section-kicker">LUNES, 7 DE SEPTIEMBRE DE 2026</p><h1>Los Post-it del día</h1><p class="muted">Todo lo importante, en un solo vistazo.</p></div><button class="primary-button" id="add-event"><span>+</span> Añadir Post-it</button></div>
+        <div class="page-heading"><div><p class="section-kicker">LUNES, 7 DE SEPTIEMBRE DE 2026</p><h1>Los Post-it del día</h1><p class="muted">Todo lo importate, en un sólo vistazo familia</p></div><button class="primary-button" id="add-event"><span>+</span> Añadir Post-it</button></div>
         <div class="stats-row"><div class="stat-item"><span class="stat-icon green">◷</span><div><strong id="pending-count">4</strong><small>pendientes hoy</small></div></div><div class="stat-item"><span class="stat-icon yellow">✓</span><div><strong id="completed-count">1</strong><small>completados</small></div></div><div class="stat-item"><span class="stat-icon orange">!</span><div><strong>1</strong><small>próximo ahora</small></div></div></div>
         <div class="filter-bar"><span class="filter-label">Ver Post-it de:</span><button class="member-filter selected" data-filter="todos"><span class="member-dot all">✦</span> Todos</button><button class="member-filter" data-filter="antonio"><span class="member-dot papa"></span> Antonio</button><button class="member-filter" data-filter="y​​ayes"><span class="member-dot mama"></span> Yayes</button><button class="member-filter" data-filter="ramsses"><span class="member-dot diego"></span> Ramsses</button><button class="member-filter" data-filter="rosa"><span class="member-dot lucia"></span> Rosa</button></div>
         <div class="day-divider"><span>HOY</span><span class="line"></span><small id="event-count">5 eventos</small></div>
