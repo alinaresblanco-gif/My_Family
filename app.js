@@ -7,6 +7,9 @@ const defaultEvents = [
 ];
 const savedEvents = localStorage.getItem('my-family-events');
 const events = savedEvents ? JSON.parse(savedEvents) : defaultEvents;
+const today = new Date();
+const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+events.forEach(event => { if (!event.date) event.date = todayKey; });
 const memberNames = { antonio: 'Antonio', yayes: 'Yayes', ramsses: 'Ramssés', rosa: 'Rosa' };
 const memberColorClasses = { antonio: 'papa', yayes: 'mama', ramsses: 'diego', rosa: 'lucia' };
 const grid = document.querySelector('#sticky-grid');
@@ -23,6 +26,8 @@ const notifications = savedNotifications ? JSON.parse(savedNotifications) : defa
 
 function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected').dataset.filter; }
+function todayEvents() { return events.filter(event => event.date === todayKey); }
+function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
 function renderNotifications() {
   const unreadCount = notifications.filter(notification => !notification.read).length;
@@ -46,12 +51,13 @@ async function enableDeviceNotifications() {
 }
 
 function renderEvents(filter = 'todos') {
-  const visible = events.filter(event => filter === 'todos' || event.member === filter).sort((a, b) => a.time.localeCompare(b.time));
-  grid.innerHTML = visible.map(event => `<article class="sticky ${memberColorClasses[event.member]} ${event.done ? 'done' : ''}" data-id="${event.id}"><span class="sticky-time">${event.time}</span><h3>${event.name}</h3><p>${event.place}</p><div class="sticky-foot"><span class="category">${event.category}</span><button class="done-button" data-done="${event.id}">${event.done ? '✓ Hecho' : 'Marcar hecho'}</button></div></article>`).join('');
-  document.querySelector('#pending-count').textContent = events.filter(event => !event.done).length;
-  document.querySelector('#nav-pending-count').textContent = events.filter(event => !event.done).length;
-  document.querySelector('#completed-count').textContent = events.filter(event => event.done).length;
-  document.querySelector('#event-count').textContent = `${events.length} eventos`;
+  const currentEvents = todayEvents();
+  const visible = currentEvents.filter(event => filter === 'todos' || event.member === filter).sort((a, b) => a.time.localeCompare(b.time));
+  grid.innerHTML = visible.length ? visible.map(event => `<article class="sticky ${memberColorClasses[event.member]} ${event.done ? 'done' : ''}" data-id="${event.id}"><span class="sticky-time">${event.time}</span><h3>${event.name}</h3><p>${event.place}</p><div class="sticky-foot"><span class="category">${event.category}</span><button class="done-button" data-done="${event.id}">${event.done ? '✓ Hecho' : 'Marcar hecho'}</button></div></article>`).join('') : `<div class="empty-events"><i>◷</i><span>PARA ${formatCurrentDate()} NO EXISTEN EVENTOS NI ACTIVIDADES MARCADAS EN LA AGENDA.</span></div>`;
+  document.querySelector('#pending-count').textContent = currentEvents.filter(event => !event.done).length;
+  document.querySelector('#nav-pending-count').textContent = currentEvents.filter(event => !event.done).length;
+  document.querySelector('#completed-count').textContent = currentEvents.filter(event => event.done).length;
+  document.querySelector('#event-count').textContent = `${currentEvents.length} eventos`;
   grid.querySelectorAll('.sticky').forEach(card => card.addEventListener('click', () => openModal(Number(card.dataset.id))));
   grid.querySelectorAll('[data-done]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); toggleDone(Number(button.dataset.done)); }));
 }
@@ -63,7 +69,7 @@ function showForm(event) {
   document.querySelector('.form-error').textContent = '';
   document.querySelector('#form-kicker').textContent = event ? 'EDITAR POST-IT' : 'NUEVO POST-IT';
   document.querySelector('#form-title').textContent = event ? 'Editar Post-it' : 'Añadir Post-it';
-  if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; });
+  if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; }); else eventForm.elements.date.value = todayKey;
 }
 function openModal(id) { const event = events.find(item => item.id === id); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `<i class="member-dot ${memberColorClasses[event.member]}\"></i> ${memberNames[event.member]}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
@@ -102,4 +108,6 @@ document.querySelector('#prev-month').addEventListener('click', () => { document
 document.querySelector('#next-month').addEventListener('click', () => { document.querySelector('.calendar-toolbar h2').innerHTML = 'OCTUBRE <span>2026</span>'; });
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
-renderEvents(); renderNotifications(); buildCalendar();
+document.querySelector('#current-date-label').textContent = formatCurrentDate();
+saveEvents(); renderEvents(); renderNotifications(); buildCalendar();
+setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);

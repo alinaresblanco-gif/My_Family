@@ -32,6 +32,8 @@
     #view-inicio .filter-label { grid-column: 1; white-space: nowrap; }
     #view-inicio .member-filter { justify-content: center; min-width: 0; }
     #view-inicio .member-filter[data-filter="todos"] { grid-column: 2; }
+    .empty-events { grid-column: 1 / -1; min-height: 190px; display: grid; place-items: center; align-content: center; gap: 10px; color: var(--green); text-align: center; font-size: 13px; font-weight: 700; letter-spacing: .5px; }
+    .empty-events i { width: 48px; height: 48px; display: grid; place-items: center; border: 2px solid var(--green); border-radius: 50%; font-style: normal; font-size: 25px; }
     .notification-modal { max-width: 460px; }
     .notification-modal h2 { margin: 8px 0 4px; }
     .notification-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-right: 25px; }
@@ -83,7 +85,7 @@
       </header>
 
       <section id="view-inicio" class="view active-view">
-        <div class="page-heading"><div><p class="section-kicker">LUNES, 7 DE SEPTIEMBRE DE 2026</p><h1>Los Post-it del día</h1><p class="muted">Todo lo importate, en un sólo vistazo familia</p></div><button class="primary-button" id="add-event"><span>+</span> Añadir Post-it</button></div>
+        <div class="page-heading"><div><p class="section-kicker" id="current-date-label">LUNES, 7 DE SEPTIEMBRE DE 2026</p><h1>Los Post-it del día</h1><p class="muted">Todo lo importate, en un sólo vistazo familia</p></div><button class="primary-button" id="add-event"><span>+</span> Añadir Post-it</button></div>
         <div class="stats-row"><div class="stat-item"><span class="stat-icon green">◷</span><div><strong id="pending-count">4</strong><small>pendientes hoy</small></div></div><div class="stat-item"><span class="stat-icon yellow">✓</span><div><strong id="completed-count">1</strong><small>completados</small></div></div><div class="stat-item"><span class="stat-icon orange">!</span><div><strong>1</strong><small>próximo ahora</small></div></div></div>
         <div class="filter-bar"><span class="filter-label">Ver Post-it de hoy:</span><button class="member-filter selected" data-filter="todos"><span class="member-dot all">✦</span> Todos</button><button class="member-filter" data-filter="antonio"><span class="member-dot papa"></span> Antonio</button><button class="member-filter" data-filter="y​​ayes"><span class="member-dot mama"></span> Yayes</button><button class="member-filter" data-filter="ramsses"><span class="member-dot diego"></span> Ramssés</button><button class="member-filter" data-filter="rosa"><span class="member-dot lucia"></span> Rosa</button></div>
         <div class="day-divider"><span>HOY</span><span class="line"></span><small id="event-count">5 eventos</small></div>
@@ -115,7 +117,7 @@
         <p class="section-kicker" id="form-kicker">NUEVO POST-IT</p>
         <h2 id="form-title">Añadir Post-it</h2>
         <label>Qué vais a hacer<input name="name" required maxlength="70" placeholder="Ej. Visita al dentista"></label>
-        <div class="form-row"><label>Hora<input name="time" type="time" required></label><label>Para<select name="member" required><option value="antonio">Antonio</option><option value="yayes">Yayes</option><option value="ramsses">Ramssés</option><option value="rosa">Rosa</option></select></label></div>
+        <div class="form-row"><label>Fecha<input name="date" type="date" required></label><label>Hora<input name="time" type="time" required></label></div><label>Para<select name="member" required><option value="antonio">Antonio</option><option value="yayes">Yayes</option><option value="ramsses">Ramssés</option><option value="rosa">Rosa</option></select></label>
         <label>Lugar o detalle<input name="place" required maxlength="100" placeholder="Ej. Centro de salud"></label>
         <label>Tipo<select name="category"><option value="🗓️ Evento">Evento</option><option value="🏥 Médico">Médico</option><option value="🎵 Actividad">Actividad</option><option value="⚽ Ocio">Ocio</option><option value="🛒 Tareas">Tareas</option></select></label>
         <p class="form-error" role="alert"></p>
