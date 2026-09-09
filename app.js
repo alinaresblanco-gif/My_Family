@@ -32,6 +32,12 @@ const recipeImagePreview = document.querySelector('#recipe-image-preview');
 const recipeImageInputs = document.querySelectorAll('#recipe-gallery, #recipe-camera');
 const savedRecipes = localStorage.getItem('my-family-recipes');
 const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
+const documentModal = document.querySelector('#document-modal');
+const documentForm = document.querySelector('#document-form');
+const documentFile = document.querySelector('#document-file');
+const savedDocuments = localStorage.getItem('my-family-documents');
+const documents = savedDocuments ? JSON.parse(savedDocuments) : [];
+const DOCUMENT_CAPACITY_BYTES = 100 * 1024 * 1024;
 const builtInRecipes = [
   { name: 'Pasta de los viernes', category: 'Rápidos', time: '25 min', servings: '', ingredients: 'Pasta\nTomate\nQueso', steps: 'Cuece la pasta y mezcla con la salsa.', image: '', description: 'Una receta rápida para compartir en familia.' },
   { name: 'Tarta de manzana', category: 'Postres', time: '60 min', servings: '', ingredients: 'Manzanas\nHarina\nCanela', steps: 'Prepara la masa, añade la manzana y hornea.', image: '', description: 'Un postre casero para cualquier ocasión.' },
@@ -44,6 +50,26 @@ function todayEvents() { return events.filter(event => event.date === todayKey);
 function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
 function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); }
+function saveDocuments() { localStorage.setItem('my-family-documents', JSON.stringify(documents)); }
+function todayInputValue() { const date = new Date(); return dateKey(date); }
+function closeDocumentModal() { documentModal.classList.remove('open'); documentModal.setAttribute('aria-hidden', 'true'); }
+function openDocumentModal() { documentForm.reset(); documentForm.elements.uploadDate.value = todayInputValue(); document.querySelector('#document-file-name').textContent = 'Ningún archivo seleccionado'; document.querySelector('#document-form-error').textContent = ''; documentModal.classList.add('open'); documentModal.setAttribute('aria-hidden', 'false'); }
+function documentExtension(name) { return name.split('.').pop().toUpperCase().slice(0, 4); }
+function renderDocuments() {
+  const counts = documents.reduce((result, document) => { result[document.category] = (result[document.category] || 0) + 1; return result; }, {});
+  document.querySelectorAll('#folder-grid .folder').forEach(folder => { const category = folder.querySelector('strong').textContent; folder.querySelector('small').textContent = `${counts[category] || 0} documentos`; });
+  const todayDate = new Date();
+  const limitDate = new Date(todayDate);
+  limitDate.setDate(limitDate.getDate() + 90);
+  const upcoming = documents.filter(document => document.expiryDate && new Date(`${document.expiryDate}T23:59:59`) >= todayDate && new Date(`${document.expiryDate}T23:59:59`) <= limitDate).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+  document.querySelector('#document-list').innerHTML = upcoming.length ? upcoming.map(document => `<div><span class="file-icon ${documentExtension(document.name).toLowerCase() === 'pdf' ? 'pdf' : 'jpg'}">${documentExtension(document.name)}</span><strong>${document.name}</strong><small>Vence el ${new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${document.expiryDate}T12:00:00`))}</small><b>›</b></div>`).join('') : '<p class="week-empty">No hay documentos próximos a vencer.</p>';
+  const usedBytes = documents.reduce((total, document) => total + (document.size || 0), 0);
+  const usedPercent = Math.min(100, (usedBytes / DOCUMENT_CAPACITY_BYTES) * 100);
+  const formattedBytes = usedBytes >= 1024 * 1024 ? `${(usedBytes / (1024 * 1024)).toFixed(2)} MB` : `${Math.ceil(usedBytes / 1024)} KB`;
+  document.querySelector('#document-storage-text').textContent = `${documents.length} documentos · Google Sheets (pendiente de conexión) · ${formattedBytes} de 100 MB`;
+  document.querySelector('#document-storage-bar').style.width = `${usedPercent}%`;
+  document.querySelector('#document-storage-percent').textContent = `${usedPercent.toFixed(1)}%`;
+}
 function closeRecipeModal() { recipeModal.classList.remove('open'); recipeModal.setAttribute('aria-hidden', 'true'); }
 function resetRecipeImage() { recipeForm.dataset.image = ''; recipeImagePreview.innerHTML = '🍲'; recipeImageInputs.forEach(input => { input.value = ''; }); }
 function readRecipeImage(file) {
@@ -190,6 +216,21 @@ recipeForm.addEventListener('submit', event => {
 });
 document.querySelector('#recipe-search').addEventListener('input', event => { renderRecipes(event.target.value); renderRecipeResult(event.target.value); });
 document.querySelector('#close-recipe-result').addEventListener('click', () => hideRecipeResult(true));
+document.querySelector('#upload-document')?.addEventListener('click', openDocumentModal);
+document.querySelectorAll('.document-modal-close').forEach(button => button.addEventListener('click', closeDocumentModal));
+documentModal.addEventListener('click', event => { if (event.target === documentModal) closeDocumentModal(); });
+documentFile.addEventListener('change', () => { document.querySelector('#document-file-name').textContent = documentFile.files[0]?.name || 'Ningún archivo seleccionado'; });
+documentForm.addEventListener('submit', event => {
+  event.preventDefault();
+  if (!documentForm.checkValidity()) { document.querySelector('#document-form-error').textContent = 'Selecciona un archivo y completa la fecha de subida.'; return; }
+  const data = Object.fromEntries(new FormData(documentForm));
+  const file = documentFile.files[0];
+  const saveDocument = fileData => { documents.push({ ...data, id: Date.now(), name: file.name, type: file.type, size: file.size, data: fileData || '' }); saveDocuments(); renderDocuments(); closeDocumentModal(); };
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener('load', () => saveDocument(reader.result));
+  reader.readAsDataURL(file);
+});
 document.querySelector('#notifications-button').addEventListener('click', openNotificationsModal);
 document.querySelector('.notifications-close').addEventListener('click', closeNotificationsModal);
 notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
@@ -204,7 +245,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); closeRecipeModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
@@ -290,6 +331,6 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
-saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); buildCalendar(); checkPublishedVersion();
+saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); buildCalendar(); checkPublishedVersion();
 setInterval(checkPublishedVersion, 60000);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);

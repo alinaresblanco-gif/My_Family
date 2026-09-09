@@ -30,6 +30,8 @@
     #view-agenda .page-heading > div:first-child { width: 100%; }
     #view-recetas .page-heading h1 { color: var(--green); }
     @media (max-width: 800px) { #view-recetas .page-heading > div:first-child { width: 100%; text-align: center; } }
+    #view-documentos .page-heading h1 { color: var(--green); }
+    @media (max-width: 800px) { #view-documentos .page-heading > div:first-child { width: 100%; text-align: center; } }
     #view-agenda .calendar-toolbar { position: relative; justify-content: center; }
     #view-agenda .calendar-toolbar .view-switch { position: absolute; right: 0; }
     #view-agenda .calendar-toolbar h2 { height: 50px; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -90,6 +92,23 @@
     .recipe-image-actions input { display: none; }
     .recipe-help { color: var(--muted); font-size: 11px; margin: 7px 0 0; }
     .recipe-form .modal-actions { margin-top: 20px; }
+    #view-documentos .section-row.document-review-heading { display: block; margin-top: 28px; margin-bottom: 14px; }
+    #view-documentos .document-review-heading h2 { color: var(--green); font-size: 18px; margin: 0; }
+    #view-documentos .document-review-heading .muted { display: block; color: var(--green); font-size: 12px; margin-top: 4px; }
+    #view-documentos .document-list > div { grid-template-columns: 40px 1fr 20px; }
+    #view-documentos .document-list strong, #view-documentos .document-list small { grid-column: 2; }
+    #view-documentos .document-list .file-icon { grid-column: 1; grid-row: 1 / span 2; }
+    #view-documentos .document-list b { grid-column: 3; grid-row: 1 / span 2; }
+    .document-modal { max-width: 520px; max-height: calc(100vh - 32px); overflow-y: auto; }
+    .document-modal h2 { margin: 6px 0 4px; }
+    .document-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
+    .document-form input, .document-form select, .document-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
+    .document-form textarea { min-height: 80px; resize: vertical; }
+    .document-form input:focus, .document-form select:focus, .document-form textarea:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
+    .document-file-name { color: var(--green); font-size: 12px; margin: 8px 0 0; }
+    .document-expiry { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+    .document-expiry label { margin-top: 14px; }
+    .document-form .modal-actions { margin-top: 20px; }
     .recipe-card[data-recipe-id] { cursor: pointer; }
     .recipe-category-heading { grid-column: 1 / -1; margin: 12px 0 -2px; color: var(--green); font: 800 14px Manrope; }
     .recipe-card-image { width: 100%; height: 100%; object-fit: cover; }
@@ -150,8 +169,8 @@
 
       <section id="view-recetas" class="view"><div class="page-heading"><div><p class="section-kicker">COCINA DE NUESTRA FAMILIA</p><h1>Recetas familiares</h1><p class="muted">Los sabores que hacen hogar.</p></div><button class="primary-button" id="add-recipe"><span>+</span> Nueva receta</button></div><div class="search-box">⌕ <input id="recipe-search" placeholder="Buscar por receta o ingrediente..."><span>⌘ K</span></div><div class="recipe-feature recipe-search-result" id="recipe-search-result" hidden><button class="recipe-result-close" id="close-recipe-result" aria-label="Cerrar receta">×</button><div class="recipe-photo" id="recipe-result-image">🍲</div><div><span class="tag">RESULTADO ENCONTRADO</span><h2 id="recipe-result-name"></h2><p id="recipe-result-description"></p><div class="recipe-meta" id="recipe-result-meta"></div><p class="recipe-ingredients"><strong>🧂 Ingredientes</strong><span id="recipe-result-ingredients"></span></p><p class="recipe-steps"><strong>👩‍🍳 Elaboración</strong><span id="recipe-result-steps"></span></p></div></div><div class="section-row"><h2>Libro de recetas</h2><span class="muted" id="recipe-count">6 recetas guardadas</span></div><div class="recipe-grid" id="recipe-grid"><article class="recipe-card" data-built-in-recipe="Pasta de los viernes"><div class="recipe-art pasta">🍝</div><strong>Pasta de los viernes</strong><small>Rápidos · 25 min</small></article><article class="recipe-card" data-built-in-recipe="Tarta de manzana"><div class="recipe-art cake">🍰</div><strong>Tarta de manzana</strong><small>Postres · 60 min</small></article><article class="recipe-card" data-built-in-recipe="Ensalada fresca"><div class="recipe-art salad">🥗</div><strong>Ensalada fresca</strong><small>Saludables · 15 min</small></article></div></section>
 
-      <section id="view-documentos" class="view"><div class="page-heading"><div><p class="section-kicker">ARCHIVO FAMILIAR</p><h1>Documentos</h1><p class="muted">Todo importante, protegido y a mano.</p></div><button class="primary-button"><span>↑</span> Subir documento</button></div><div class="storage-banner"><div class="storage-icon">▤</div><div><strong>Tu archivo familiar</strong><p>12 documentos · 1.8 GB utilizados</p></div><div class="storage-bar"><i></i></div><span>18%</span></div><div class="folder-grid"><div class="folder"><span>▣</span><strong>Seguros</strong><small>3 documentos</small></div><div class="folder"><span>▣</span><strong>Salud y vacunas</strong><small>4 documentos</small><b class="warning">1 por caducar</b></div><div class="folder"><span>▣</span><strong>Coche</strong><small>2 documentos</small></div><div class="folder"><span>▣</span><strong>Identidad</strong><small>3 documentos</small></div></div><div class="section-row"><h2>Revisar pronto</h2><span class="muted">Vencen en los próximos 90 días</span></div><div class="document-list"><div><span class="file-icon pdf">PDF</span><strong>Seguro del coche</strong><small>Vence el 18 de octubre de 2026</small><b>›</b></div><div><span class="file-icon jpg">JPG</span><strong>Documento de Rosa</strong><small>Actualizado el 02 de septiembre de 2026</small><b>›</b></div></div></section>
 
+      <section id="view-documentos" class="view"><div class="page-heading"><div><p class="section-kicker">ARCHIVO FAMILIAR</p><h1>Documentoteca</h1><p class="muted">Todo importante, protegido y a mano.</p></div><button class="primary-button" id="upload-document"><span>↑</span> Subir documento</button></div><div class="storage-banner"><div class="storage-icon">▤</div><div><strong>Archivos de documentos familiares</strong><p id="document-storage-text">0 documentos · Google Sheets (pendiente de conexión)</p></div><div class="storage-bar"><i id="document-storage-bar"></i></div><span id="document-storage-percent">0%</span></div><div class="folder-grid" id="folder-grid"><div class="folder"><span>▣</span><strong>Identidad y registros</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Educación</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Salud</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Finanzas y hogar</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Vehículos</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Eventos y recuerdos</strong><small>0 documentos</small></div></div><div class="section-row document-review-heading"><h2>Revisar pronto</h2><span class="muted">Vencen en los próximos 90 días</span></div><div class="document-list" id="document-list"></div></section>
       <section id="view-miembros" class="view"><div class="page-heading"><div><p class="section-kicker">NUESTRA FAMILIA</p><h1>Miembros</h1><p class="muted">Cada persona, con su color y su espacio.</p></div><button class="primary-button"><span>+</span> Añadir miembro</button></div><div class="family-grid"><article class="person-card papa-card"><div class="person-avatar">A</div><h2>Antonio</h2><span>Antonio</span><p>12 Post-it este mes · Verde</p><button>Personalizar perfil →</button></article><article class="person-card mama-card"><div class="person-avatar">Y</div><h2>Yayes</h2><span>Yayes</span><p>8 Post-it este mes · Azul</p><button>Personalizar perfil →</button></article><article class="person-card diego-card"><div class="person-avatar">R</div><h2>Ramssés</h2><span>Ramssés</span><p>6 Post-it este mes · Rojo</p><button>Personalizar perfil →</button></article><article class="person-card lucia-card"><div class="person-avatar">R</div><h2>Rosa</h2><span>Rosa</span><p>4 Post-it este mes · Amarillo</p><button>Personalizar perfil →</button></article></div></section>
 
       <section id="view-ajustes" class="view"><div class="page-heading"><div><p class="section-kicker">PERSONALIZA LA EXPERIENCIA</p><h1>Ajustes</h1><p class="muted">Preferencias de vuestra agenda familiar.</p></div></div><div class="settings-list"><div><span>🔔</span><div><strong>Notificaciones</strong><small>Recibe avisos de eventos y documentos</small></div><label class="toggle"><input type="checkbox" checked><i></i></label></div><div><span>◌</span><div><strong>Sincronización</strong><small>Preparado para conectar con Google Sheets</small></div><label class="toggle"><input type="checkbox" checked><i></i></label></div></div></section>
@@ -209,6 +228,22 @@
         <label>Elaboración<textarea name="steps" required placeholder="1. Lava y corta los ingredientes.\n2. Cocina a fuego medio..."></textarea></label>
         <p class="form-error" id="recipe-form-error" role="alert"></p>
         <div class="modal-actions"><button type="button" class="secondary-button recipe-modal-close">Cerrar</button><button type="submit" class="primary-button">Guardar receta</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="document-modal" aria-hidden="true">
+    <div class="modal document-modal" role="dialog" aria-modal="true" aria-labelledby="document-modal-title">
+      <button class="modal-close document-modal-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">ARCHIVO FAMILIAR</p>
+      <h2 id="document-modal-title">Subir documento</h2>
+      <form class="document-form" id="document-form" novalidate>
+        <label>Archivo<input id="document-file" name="file" type="file" required accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"></label>
+        <p class="document-file-name" id="document-file-name">Ningún archivo seleccionado</p>
+        <label>Categoría<select name="category" required><option value="Identidad y registros">Identidad y registros</option><option value="Educación">Educación</option><option value="Salud">Salud</option><option value="Finanzas y hogar">Finanzas y hogar</option><option value="Vehículos">Vehículos</option><option value="Eventos y recuerdos">Eventos y recuerdos</option></select></label>
+        <div class="document-expiry"><label>Fecha de subida<input name="uploadDate" type="date" required></label><label>Fecha de vencimiento<input name="expiryDate" type="date"></label></div>
+        <label>Notas<textarea name="notes" maxlength="400" placeholder="Añade información útil sobre este documento..."></textarea></label>
+        <p class="form-error" id="document-form-error" role="alert"></p>
+        <div class="modal-actions"><button type="button" class="secondary-button document-modal-close">Cerrar</button><button type="submit" class="primary-button">Guardar documento</button></div>
       </form>
     </div>
   </div>
