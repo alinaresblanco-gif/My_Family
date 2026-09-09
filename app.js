@@ -38,6 +38,14 @@ const documentFile = document.querySelector('#document-file');
 const savedDocuments = localStorage.getItem('my-family-documents');
 const documents = savedDocuments ? JSON.parse(savedDocuments) : [];
 const DOCUMENT_CAPACITY_BYTES = 100 * 1024 * 1024;
+const defaultMembers = [
+  { id: 1, name: 'Antonio', role: 'Antonio', color: '#8ec68f', initials: 'A', phone: '', birthDate: '', notes: '' },
+  { id: 2, name: 'Yayes', role: 'Yayes', color: '#93c6d1', initials: 'Y', phone: '', birthDate: '', notes: '' },
+  { id: 3, name: 'Ramssés', role: 'Ramssés', color: '#e98779', initials: 'R', phone: '', birthDate: '', notes: '' },
+  { id: 4, name: 'Rosa', role: 'Rosa', color: '#f6cf68', initials: 'R', phone: '', birthDate: '', notes: '' }
+];
+const savedMembers = localStorage.getItem('my-family-members');
+const members = savedMembers ? JSON.parse(savedMembers) : defaultMembers;
 const builtInRecipes = [
   { name: 'Pasta de los viernes', category: 'Rápidos', time: '25 min', servings: '', ingredients: 'Pasta\nTomate\nQueso', steps: 'Cuece la pasta y mezcla con la salsa.', image: '', description: 'Una receta rápida para compartir en familia.' },
   { name: 'Tarta de manzana', category: 'Postres', time: '60 min', servings: '', ingredients: 'Manzanas\nHarina\nCanela', steps: 'Prepara la masa, añade la manzana y hornea.', image: '', description: 'Un postre casero para cualquier ocasión.' },
@@ -51,8 +59,26 @@ function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
 function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); }
 function saveDocuments() { localStorage.setItem('my-family-documents', JSON.stringify(documents)); }
+function saveMembers() { localStorage.setItem('my-family-members', JSON.stringify(members)); }
 function todayInputValue() { const date = new Date(); return dateKey(date); }
 function closeDocumentModal() { documentModal.classList.remove('open'); documentModal.setAttribute('aria-hidden', 'true'); }
+const memberModal = document.querySelector('#member-modal');
+const memberForm = document.querySelector('#member-form');
+function closeMemberModal() { memberModal.classList.remove('open'); memberModal.setAttribute('aria-hidden', 'true'); }
+function openMemberModal(member) {
+  memberForm.reset();
+  memberForm.dataset.id = member ? member.id : '';
+  document.querySelector('#member-modal-title').textContent = member ? 'Personalizar perfil' : 'Añadir miembro';
+  document.querySelector('#member-form-error').textContent = '';
+  if (member) Object.entries(member).forEach(([key, value]) => { if (memberForm.elements[key]) memberForm.elements[key].value = value; });
+  memberModal.classList.add('open');
+  memberModal.setAttribute('aria-hidden', 'false');
+}
+function renderMembers() {
+  const familyGrid = document.querySelector('#family-grid');
+  familyGrid.innerHTML = members.map(member => `<article class="person-card" style="--member-color:${member.color}" data-member-id="${member.id}"><div class="person-avatar">${member.initials || member.name.slice(0, 1).toUpperCase()}</div><h2>${member.name}</h2><span>${member.role}</span><p class="member-card-meta">Post-it y datos familiares</p><button class="customize-member" data-member-id="${member.id}">Personalizar perfil →</button></article>`).join('');
+  familyGrid.querySelectorAll('.customize-member').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); openMemberModal(members.find(member => member.id === Number(button.dataset.memberId))); }));
+}
 function openDocumentModal() { documentForm.reset(); documentForm.elements.uploadDate.value = todayInputValue(); document.querySelector('#document-file-name').textContent = 'Ningún archivo seleccionado'; document.querySelector('#document-form-error').textContent = ''; documentModal.classList.add('open'); documentModal.setAttribute('aria-hidden', 'false'); }
 function documentExtension(name) { return name.split('.').pop().toUpperCase().slice(0, 4); }
 function renderDocuments() {
@@ -231,6 +257,17 @@ documentForm.addEventListener('submit', event => {
   reader.addEventListener('load', () => saveDocument(reader.result));
   reader.readAsDataURL(file);
 });
+document.querySelector('#add-member').addEventListener('click', () => openMemberModal());
+document.querySelectorAll('.member-modal-close').forEach(button => button.addEventListener('click', closeMemberModal));
+memberModal.addEventListener('click', event => { if (event.target === memberModal) closeMemberModal(); });
+memberForm.addEventListener('submit', event => {
+  event.preventDefault();
+  if (!memberForm.checkValidity()) { document.querySelector('#member-form-error').textContent = 'Completa el nombre y el parentesco o rol.'; return; }
+  const data = Object.fromEntries(new FormData(memberForm));
+  const existing = members.find(member => member.id === Number(memberForm.dataset.id));
+  if (existing) Object.assign(existing, data); else members.push({ ...data, id: Date.now() });
+  saveMembers(); renderMembers(); closeMemberModal();
+});
 document.querySelector('#notifications-button').addEventListener('click', openNotificationsModal);
 document.querySelector('.notifications-close').addEventListener('click', closeNotificationsModal);
 notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
@@ -245,7 +282,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
@@ -331,6 +368,6 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
-saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); buildCalendar(); checkPublishedVersion();
+saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); buildCalendar(); checkPublishedVersion();
 setInterval(checkPublishedVersion, 60000);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);

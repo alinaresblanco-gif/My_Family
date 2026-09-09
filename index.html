@@ -32,6 +32,8 @@
     @media (max-width: 800px) { #view-recetas .page-heading > div:first-child { width: 100%; text-align: center; } }
     #view-documentos .page-heading h1 { color: var(--green); }
     @media (max-width: 800px) { #view-documentos .page-heading > div:first-child { width: 100%; text-align: center; } }
+    #view-miembros .page-heading h1 { color: var(--green); }
+    @media (max-width: 800px) { #view-miembros .page-heading > div:first-child { width: 100%; text-align: center; } #view-miembros .section-kicker, #view-miembros .page-heading .muted { color: var(--green); } }
     #view-agenda .calendar-toolbar { position: relative; justify-content: center; }
     #view-agenda .calendar-toolbar .view-switch { position: absolute; right: 0; }
     #view-agenda .calendar-toolbar h2 { height: 50px; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -109,6 +111,18 @@
     .document-expiry { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
     .document-expiry label { margin-top: 14px; }
     .document-form .modal-actions { margin-top: 20px; }
+    .member-modal { max-width: 520px; max-height: calc(100vh - 32px); overflow-y: auto; }
+    .member-modal h2 { margin: 6px 0 4px; }
+    .member-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
+    .member-form input, .member-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
+    .member-form textarea { min-height: 78px; resize: vertical; }
+    .member-form input:focus, .member-form textarea:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
+    .member-color-row { display: grid; grid-template-columns: 1fr 72px; gap: 12px; align-items: end; }
+    .member-color-row input[type="color"] { height: 39px; padding: 3px; cursor: pointer; }
+    .member-form .modal-actions { margin-top: 20px; }
+    .person-card { border-top-color: var(--member-color, var(--green)); }
+    .person-avatar { background: var(--member-color, #a9d6a8); }
+    .member-card-meta { min-height: 28px; }
     .recipe-card[data-recipe-id] { cursor: pointer; }
     .recipe-category-heading { grid-column: 1 / -1; margin: 12px 0 -2px; color: var(--green); font: 800 14px Manrope; }
     .recipe-card-image { width: 100%; height: 100%; object-fit: cover; }
@@ -171,7 +185,7 @@
 
 
       <section id="view-documentos" class="view"><div class="page-heading"><div><p class="section-kicker">ARCHIVO DE DOCUMENTOS FAMILIARES</p><h1>Documentoteca</h1><p class="muted">Todo importante, protegido y a mano.</p></div><button class="primary-button" id="upload-document"><span>↑</span> Subir documento</button></div><div class="storage-banner"><div class="storage-icon">▤</div><div><strong>Archivos de documentos familiares</strong><p id="document-storage-text">0 documentos · Google Sheets (pendiente de conexión)</p></div><div class="storage-bar"><i id="document-storage-bar"></i></div><span id="document-storage-percent">0%</span></div><div class="folder-grid" id="folder-grid"><div class="folder"><span>▣</span><strong>Identidad y registros</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Educación</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Salud</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Finanzas y hogar</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Vehículos</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Eventos y recuerdos</strong><small>0 documentos</small></div></div><div class="section-row document-review-heading"><h2>Revisar pronto</h2><span class="muted">Vencen en los próximos 90 días</span></div><div class="document-list" id="document-list"></div></section>
-      <section id="view-miembros" class="view"><div class="page-heading"><div><p class="section-kicker">NUESTRA FAMILIA</p><h1>Miembros</h1><p class="muted">Cada persona, con su color y su espacio.</p></div><button class="primary-button"><span>+</span> Añadir miembro</button></div><div class="family-grid"><article class="person-card papa-card"><div class="person-avatar">A</div><h2>Antonio</h2><span>Antonio</span><p>12 Post-it este mes · Verde</p><button>Personalizar perfil →</button></article><article class="person-card mama-card"><div class="person-avatar">Y</div><h2>Yayes</h2><span>Yayes</span><p>8 Post-it este mes · Azul</p><button>Personalizar perfil →</button></article><article class="person-card diego-card"><div class="person-avatar">R</div><h2>Ramssés</h2><span>Ramssés</span><p>6 Post-it este mes · Rojo</p><button>Personalizar perfil →</button></article><article class="person-card lucia-card"><div class="person-avatar">R</div><h2>Rosa</h2><span>Rosa</span><p>4 Post-it este mes · Amarillo</p><button>Personalizar perfil →</button></article></div></section>
+      <section id="view-miembros" class="view"><div class="page-heading"><div><p class="section-kicker">NUESTRA FAMILIA</p><h1>Miembros</h1><p class="muted">Cada persona, con su color y su espacio.</p></div><button class="primary-button" id="add-member"><span>+</span> Añadir miembro</button></div><div class="family-grid" id="family-grid"></div></section>
 
       <section id="view-ajustes" class="view"><div class="page-heading"><div><p class="section-kicker">PERSONALIZA LA EXPERIENCIA</p><h1>Ajustes</h1><p class="muted">Preferencias de vuestra agenda familiar.</p></div></div><div class="settings-list"><div><span>🔔</span><div><strong>Notificaciones</strong><small>Recibe avisos de eventos y documentos</small></div><label class="toggle"><input type="checkbox" checked><i></i></label></div><div><span>◌</span><div><strong>Sincronización</strong><small>Preparado para conectar con Google Sheets</small></div><label class="toggle"><input type="checkbox" checked><i></i></label></div></div></section>
     </main>
@@ -244,6 +258,23 @@
         <label>Notas<textarea name="notes" maxlength="400" placeholder="Añade información útil sobre este documento..."></textarea></label>
         <p class="form-error" id="document-form-error" role="alert"></p>
         <div class="modal-actions"><button type="button" class="secondary-button document-modal-close">Cerrar</button><button type="submit" class="primary-button">Guardar documento</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="member-modal" aria-hidden="true">
+    <div class="modal member-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
+      <button class="modal-close member-modal-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">NUESTRA FAMILIA</p>
+      <h2 id="member-modal-title">Añadir miembro</h2>
+      <form class="member-form" id="member-form" novalidate>
+        <label>Nombre<input name="name" required maxlength="50" placeholder="Ej. Antonio"></label>
+        <label>Parentesco o rol<input name="role" required maxlength="50" placeholder="Ej. Padre"></label>
+        <div class="member-color-row"><label>Color del perfil<input name="color" type="color" value="#8ec68f"></label><label>Iniciales<input name="initials" maxlength="2" placeholder="A"></label></div>
+        <label>Teléfono<input name="phone" type="tel" maxlength="25" placeholder="Ej. 600 000 000"></label>
+        <label>Fecha de nacimiento<input name="birthDate" type="date"></label>
+        <label>Notas<textarea name="notes" maxlength="300" placeholder="Información adicional del miembro..."></textarea></label>
+        <p class="form-error" id="member-form-error" role="alert"></p>
+        <div class="modal-actions"><button type="button" class="secondary-button member-modal-close">Cerrar</button><button type="submit" class="primary-button">Guardar miembro</button></div>
       </form>
     </div>
   </div>
