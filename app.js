@@ -32,8 +32,8 @@ function showForm(event) {
   eventForm.hidden = false;
   eventForm.reset();
   document.querySelector('.form-error').textContent = '';
-  document.querySelector('#form-kicker').textContent = event ? 'EDITAR POTSI' : 'NUEVO POTSI';
-  document.querySelector('#form-title').textContent = event ? 'Editar potsi' : 'Añadir potsi';
+  document.querySelector('#form-kicker').textContent = event ? 'EDITAR POST-IT' : 'NUEVO POST-IT';
+  document.querySelector('#form-title').textContent = event ? 'Editar Post-it' : 'Añadir Post-it';
   if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; });
 }
 function openModal(id) { const event = events.find(item => item.id === id); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `<i class="member-dot ${memberColorClasses[event.member]}\"></i> ${memberNames[event.member]}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
