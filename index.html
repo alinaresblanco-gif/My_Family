@@ -33,6 +33,8 @@
     #view-agenda .calendar-toolbar h2 { height: 50px; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
     #view-agenda .summary-head h3 { color: var(--green); font-size: 18px; }
     #view-agenda .summary-head span { color: var(--green); font-size: 12px; }
+    #view-agenda .cal-day { overflow: hidden; }
+    #view-agenda .cal-day .dots { left: 5px; right: 5px; bottom: 6px; max-width: calc(100% - 10px); display: flex; flex-wrap: wrap; gap: 4px; row-gap: 5px; }
     .calendar.week-view { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line); }
     .week-day { min-height: 84px; padding: 12px 14px; display: grid; grid-template-columns: 110px 1fr; align-items: start; column-gap: 18px; background: #fff; }
     .week-day.today { background: #edf6ef; }

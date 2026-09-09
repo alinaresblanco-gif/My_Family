@@ -157,9 +157,12 @@ function buildCalendar() {
     const dayNumber = index - firstDay + 1;
     const isCurrentMonth = dayNumber > 0 && dayNumber <= daysInMonth;
     const displayedDay = dayNumber <= 0 ? previousMonthDays + dayNumber : dayNumber > daysInMonth ? dayNumber - daysInMonth : dayNumber;
-    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-    const isToday = isCurrentMonth && dateKey === todayKey;
-    return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}">${displayedDay}<div class="dots"></div></div>`;
+    const cellDate = new Date(year, month, dayNumber);
+    const cellDateKey = dateKey(cellDate);
+    const dayEvents = events.filter(event => event.date === cellDateKey);
+    const isToday = isCurrentMonth && cellDateKey === todayKey;
+    const dots = dayEvents.map(event => `<i class="member-dot ${memberColorClasses[event.member]}" title="${event.name}"></i>`).join('');
+    return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}">${displayedDay}<div class="dots">${dots}</div></div>`;
   }).join('');
 }
 document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const view = link.dataset.view; document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); document.querySelector(`#view-${view}`).classList.add('active-view'); document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelector('.sidebar').classList.remove('open'); }));
