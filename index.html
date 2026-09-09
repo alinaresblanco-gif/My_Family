@@ -17,6 +17,8 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <style>
+    .avatar { overflow: hidden; }
+    .avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
     .event-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
     .event-form input, .event-form select { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
     .event-form input:focus, .event-form select:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
@@ -48,7 +50,7 @@
       <header class="topbar">
         <button class="menu-button" aria-label="Abrir menú">☰</button>
         <div class="welcome"><span id="greeting">Buenos días, familia</span><strong>¡Que tengáis un gran día!</strong></div>
-        <div class="top-actions"><button class="icon-button" title="Notificaciones">♢<em>2</em></button><div class="avatar">LG</div></div>
+        <div class="top-actions"><button class="icon-button" title="Notificaciones">♢<em>2</em></button><div class="avatar"><img src="imagenes/lg.png" alt="Perfil de LG"></div></div>
       </header>
 
       <section id="view-inicio" class="view active-view">
