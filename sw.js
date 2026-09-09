@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-family-v2026.9.9.9';
+const CACHE_NAME = 'my-family-v2026.9.9.10';
 const APP_FILES = [
   './',
   './index.html',

@@ -26,6 +26,8 @@ const defaultNotifications = [
 ];
 const savedNotifications = localStorage.getItem('my-family-notifications');
 const notifications = savedNotifications ? JSON.parse(savedNotifications) : defaultNotifications;
+const savedSettings = JSON.parse(localStorage.getItem('my-family-settings') || '{}');
+const settings = { notifications: savedSettings.notifications !== false, sync: savedSettings.sync !== false };
 const recipeModal = document.querySelector('#recipe-modal');
 const recipeForm = document.querySelector('#recipe-form');
 const recipeImagePreview = document.querySelector('#recipe-image-preview');
@@ -46,6 +48,7 @@ const defaultMembers = [
 ];
 const savedMembers = localStorage.getItem('my-family-members');
 const members = savedMembers ? JSON.parse(savedMembers) : defaultMembers;
+members.forEach(member => { if (!member.key) member.key = member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'); });
 const builtInRecipes = [
   { name: 'Pasta de los viernes', category: 'Rápidos', time: '25 min', servings: '', ingredients: 'Pasta\nTomate\nQueso', steps: 'Cuece la pasta y mezcla con la salsa.', image: '', description: 'Una receta rápida para compartir en familia.' },
   { name: 'Tarta de manzana', category: 'Postres', time: '60 min', servings: '', ingredients: 'Manzanas\nHarina\nCanela', steps: 'Prepara la masa, añade la manzana y hornea.', image: '', description: 'Un postre casero para cualquier ocasión.' },
@@ -57,9 +60,19 @@ function getActiveFilter() { return document.querySelector('.member-filter.selec
 function todayEvents() { return events.filter(event => event.date === todayKey); }
 function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
+function saveSettings() { localStorage.setItem('my-family-settings', JSON.stringify(settings)); }
+function renderSettings() {
+  document.querySelector('#notifications-setting').checked = settings.notifications;
+  document.querySelector('#sync-setting').checked = settings.sync;
+  document.querySelector('#notifications-setting-status').textContent = settings.notifications ? 'Recibe avisos de eventos y documentos' : 'Avisos pausados en este dispositivo';
+  document.querySelector('#sync-setting-status').textContent = settings.sync ? 'Preparado para conectar con Google Sheets' : 'Sincronización pausada';
+  document.querySelector('#notifications-button').disabled = !settings.notifications;
+}
 function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); }
 function saveDocuments() { localStorage.setItem('my-family-documents', JSON.stringify(documents)); }
 function saveMembers() { localStorage.setItem('my-family-members', JSON.stringify(members)); }
+function getMember(key) { return members.find(member => member.key === key) || { name: key, color: '#176b4d', initials: key.slice(0, 1).toUpperCase() }; }
+function memberDot(memberKey, extra = '') { const member = getMember(memberKey); return `<i class="member-dot ${extra}" style="background:${member.color}" title="${member.name}"></i>`; }
 function todayInputValue() { const date = new Date(); return dateKey(date); }
 function closeDocumentModal() { documentModal.classList.remove('open'); documentModal.setAttribute('aria-hidden', 'true'); }
 const memberModal = document.querySelector('#member-modal');
@@ -78,6 +91,13 @@ function renderMembers() {
   const familyGrid = document.querySelector('#family-grid');
   familyGrid.innerHTML = members.map(member => `<article class="person-card" style="--member-color:${member.color}" data-member-id="${member.id}"><div class="person-avatar">${member.initials || member.name.slice(0, 1).toUpperCase()}</div><h2>${member.name}</h2><span>${member.role}</span><p class="member-card-meta">Post-it y datos familiares</p><button class="customize-member" data-member-id="${member.id}">Personalizar perfil →</button></article>`).join('');
   familyGrid.querySelectorAll('.customize-member').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); openMemberModal(members.find(member => member.id === Number(button.dataset.memberId))); }));
+}
+function renderMemberFilters() {
+  document.querySelectorAll('#view-inicio .member-filter[data-filter]').forEach(button => {
+    const member = getMember(button.dataset.filter);
+    if (!member.key) return;
+    button.innerHTML = `${memberDot(member.key)} ${member.name}`;
+  });
 }
 function openDocumentModal() { documentForm.reset(); documentForm.elements.uploadDate.value = todayInputValue(); document.querySelector('#document-file-name').textContent = 'Ningún archivo seleccionado'; document.querySelector('#document-form-error').textContent = ''; documentModal.classList.add('open'); documentModal.setAttribute('aria-hidden', 'false'); }
 function documentExtension(name) { return name.split('.').pop().toUpperCase().slice(0, 4); }
@@ -172,6 +192,7 @@ async function checkPublishedVersion() {
 function renderNotifications() {
   const unreadCount = notifications.filter(notification => !notification.read).length;
   const count = document.querySelector('#notification-count');
+  if (!settings.notifications) { count.hidden = true; return; }
   count.textContent = unreadCount;
   count.hidden = unreadCount === 0;
   notificationList.innerHTML = notifications.length ? notifications.map(notification => `<button class="notification-item ${notification.read ? '' : 'unread'}" data-notification-id="${notification.id}"><i class="notification-dot"></i><span><strong>${notification.title}</strong><small>${notification.message}</small></span></button>`).join('') : '<p class="notification-empty">No tienes notificaciones.</p>';
@@ -182,7 +203,7 @@ function renderNotifications() {
     renderNotifications();
   }));
 }
-function openNotificationsModal() { renderNotifications(); notificationsModal.classList.add('open'); notificationsModal.setAttribute('aria-hidden', 'false'); }
+function openNotificationsModal() { if (!settings.notifications) return; renderNotifications(); notificationsModal.classList.add('open'); notificationsModal.setAttribute('aria-hidden', 'false'); }
 function closeNotificationsModal() { notificationsModal.classList.remove('open'); notificationsModal.setAttribute('aria-hidden', 'true'); }
 async function enableDeviceNotifications() {
   if (!('Notification' in window)) return;
@@ -193,7 +214,7 @@ async function enableDeviceNotifications() {
 function renderEvents(filter = 'todos') {
   const currentEvents = todayEvents();
   const visible = currentEvents.filter(event => filter === 'todos' || event.member === filter).sort((a, b) => a.time.localeCompare(b.time));
-  grid.innerHTML = visible.length ? visible.map(event => `<article class="sticky ${memberColorClasses[event.member]} ${event.done ? 'done' : ''}" data-id="${event.id}"><span class="sticky-time">${event.time}</span><h3>${event.name}</h3><p>${event.place}</p><div class="sticky-foot"><span class="category">${event.category}</span><button class="done-button" data-done="${event.id}">${event.done ? '✓ Hecho' : 'Marcar hecho'}</button></div></article>`).join('') : `<div class="empty-events"><i>◷</i><span>PARA ${formatCurrentDate()} NO EXISTEN EVENTOS NI ACTIVIDADES MARCADAS EN LA AGENDA.</span></div>`;
+  grid.innerHTML = visible.length ? visible.map(event => `<article class="sticky ${memberColorClasses[event.member]} ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" data-id="${event.id}"><span class="sticky-time">${event.time}</span><h3>${event.name}</h3><p>${event.place}</p><div class="sticky-foot"><span class="category">${event.category}</span><button class="done-button" data-done="${event.id}">${event.done ? '✓ Hecho' : 'Marcar hecho'}</button></div></article>`).join('') : `<div class="empty-events"><i>◷</i><span>PARA ${formatCurrentDate()} NO EXISTEN EVENTOS NI ACTIVIDADES MARCADAS EN LA AGENDA.</span></div>`;
   document.querySelector('#pending-count').textContent = currentEvents.filter(event => !event.done).length;
   document.querySelector('#nav-pending-count').textContent = currentEvents.filter(event => !event.done).length;
   document.querySelector('#completed-count').textContent = currentEvents.filter(event => event.done).length;
@@ -212,9 +233,11 @@ function showForm(event) {
   if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; }); else eventForm.elements.date.value = todayKey;
 }
 function openModal(id) { const event = events.find(item => item.id === id); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `<i class="member-dot ${memberColorClasses[event.member]}\"></i> ${memberNames[event.member]}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${member.name}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
 document.querySelectorAll('.member-filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.member-filter.selected').classList.remove('selected'); button.classList.add('selected'); renderEvents(button.dataset.filter); }));
+renderMemberFilters();
 document.querySelector('.modal-close').addEventListener('click', closeModal);
 modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
 document.querySelector('.modal-done').addEventListener('click', () => { toggleDone(Number(modal.dataset.id)); closeModal(); });
@@ -265,14 +288,16 @@ memberForm.addEventListener('submit', event => {
   if (!memberForm.checkValidity()) { document.querySelector('#member-form-error').textContent = 'Completa el nombre y el parentesco o rol.'; return; }
   const data = Object.fromEntries(new FormData(memberForm));
   const existing = members.find(member => member.id === Number(memberForm.dataset.id));
-  if (existing) Object.assign(existing, data); else members.push({ ...data, id: Date.now() });
-  saveMembers(); renderMembers(); closeMemberModal();
+  if (existing) Object.assign(existing, data); else members.push({ ...data, key: data.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), id: Date.now() });
+  saveMembers(); renderMembers(); renderMemberFilters(); renderEvents(getActiveFilter()); buildCalendar(); closeMemberModal();
 });
 document.querySelector('#notifications-button').addEventListener('click', openNotificationsModal);
 document.querySelector('.notifications-close').addEventListener('click', closeNotificationsModal);
 notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
 document.querySelector('#mark-all-read').addEventListener('click', () => { notifications.forEach(notification => { notification.read = true; }); saveNotifications(); renderNotifications(); });
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
+document.querySelector('#notifications-setting').addEventListener('change', event => { settings.notifications = event.target.checked; saveSettings(); renderSettings(); if (!settings.notifications) closeNotificationsModal(); });
+document.querySelector('#sync-setting').addEventListener('change', event => { settings.sync = event.target.checked; saveSettings(); renderSettings(); });
 document.querySelector('#update-later').addEventListener('click', closeUpdateModal);
 document.querySelector('#update-app').addEventListener('click', async () => {
   localStorage.setItem('my-family-update-version', currentAppVersion);
@@ -303,7 +328,7 @@ function renderUpcoming() {
   const endKey = dateKey(weekEnd);
   const upcoming = events.filter(event => event.date >= startKey && event.date <= endKey).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   summaryPeriod.textContent = `${weekStart.getDate()}-${weekEnd.getDate()} ${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(weekEnd)}`;
-  summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}"><b>${event.time}</b><span class="member-dot ${memberColorClasses[event.member]}"></span><div><strong>${event.name}</strong><small>${memberNames[event.member]} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
+  summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}"><b>${event.time}</b>${memberDot(event.member)}<div><strong>${event.name}</strong><small>${getMember(event.member).name} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
 }
 function getWeekNumber(date) {
   const target = new Date(date);
@@ -350,7 +375,7 @@ function buildCalendar() {
     const cellDateKey = dateKey(cellDate);
     const dayEvents = events.filter(event => event.date === cellDateKey);
     const isToday = isCurrentMonth && cellDateKey === todayKey;
-    const dots = dayEvents.map(event => `<i class="member-dot ${memberColorClasses[event.member]}" title="${event.name}"></i>`).join('');
+    const dots = dayEvents.map(event => memberDot(event.member)).join('');
     return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}">${displayedDay}<div class="dots">${dots}</div></div>`;
   }).join('');
 }
@@ -368,6 +393,6 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
-saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); buildCalendar(); checkPublishedVersion();
+saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion();
 setInterval(checkPublishedVersion, 60000);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);
