@@ -95,17 +95,70 @@ document.querySelector('#mark-all-read').addEventListener('click', () => { notif
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
 document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); } });
 
+let calendarDate = new Date(2026, 8, 1);
+let calendarMode = 'month';
+function getWeekStart(date) {
+  const weekStart = new Date(date);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+function dateKey(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
+function getWeekNumber(date) {
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  target.setDate(target.getDate() + 3 - ((target.getDay() + 6) % 7));
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+  return 1 + Math.round(((target - firstThursday) / 86400000 - 3 + ((firstThursday.getDay() + 6) % 7)) / 7);
+}
+function renderWeek(calendar) {
+  const weekStart = getWeekStart(calendarDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const formatter = new Intl.DateTimeFormat('es-ES', { month: 'long' });
+  document.querySelector('.calendar-toolbar h2').innerHTML = `${formatter.format(weekStart).toUpperCase()} ${weekStart.getFullYear()} <span class="week-number">SEMANA ${getWeekNumber(weekStart)} DEL AÑO</span>`;
+  calendar.classList.add('week-view');
+  calendar.innerHTML = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(weekStart);
+    day.setDate(day.getDate() + index);
+    const key = dateKey(day);
+    const dayEvents = events.filter(event => event.date === key).sort((a, b) => a.time.localeCompare(b.time));
+    const eventMarkup = dayEvents.length ? dayEvents.map(event => `<div class="week-event ${event.done ? 'done' : ''}"><span class="week-event-time">${event.time}</span><span class="week-event-name">${event.name}</span></div>`).join('') : '<span class="week-empty">Sin eventos</span>';
+    return `<div class="week-day ${key === todayKey ? 'today' : ''}"><div class="week-day-label">${new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(day).toUpperCase()}</div><div class="week-day-number">${day.getDate()}</div>${eventMarkup}</div>`;
+  }).join('');
+}
 function buildCalendar() {
   const calendar = document.querySelector('#calendar');
+  if (calendarMode === 'week') { renderWeek(calendar); return; }
+  calendar.classList.remove('week-view');
   const headings = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
-  const days = Array.from({ length: 35 }, (_, index) => index - 0);
-  calendar.innerHTML = headings.map(day => `<div class="cal-head">${day}</div>`).join('') + days.map(day => `<div class="cal-day ${day === 7 ? 'today' : ''}">${day + 1 <= 30 ? day + 1 : day - 29}<div class="dots">${day % 3 === 0 ? '<i class="member-dot papa"></i>' : ''}${day % 4 === 0 ? '<i class="member-dot mama"></i>' : ''}${day % 5 === 0 ? '<i class="member-dot diego"></i>' : ''}</div></div>`).join('');
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const previousMonthDays = new Date(year, month, 0).getDate();
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+  const monthLabel = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(calendarDate).toUpperCase();
+  document.querySelector('.calendar-toolbar h2').innerHTML = `${monthLabel} <span>${year}</span>`;
+  calendar.innerHTML = headings.map(day => `<div class="cal-head">${day}</div>`).join('') + Array.from({ length: totalCells }, (_, index) => {
+    const dayNumber = index - firstDay + 1;
+    const isCurrentMonth = dayNumber > 0 && dayNumber <= daysInMonth;
+    const displayedDay = dayNumber <= 0 ? previousMonthDays + dayNumber : dayNumber > daysInMonth ? dayNumber - daysInMonth : dayNumber;
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+    const isToday = isCurrentMonth && dateKey === todayKey;
+    return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}">${displayedDay}<div class="dots"></div></div>`;
+  }).join('');
 }
 document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const view = link.dataset.view; document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); document.querySelector(`#view-${view}`).classList.add('active-view'); document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelector('.sidebar').classList.remove('open'); }));
 document.querySelectorAll('#add-event, #add-event-agenda').forEach(button => button.addEventListener('click', openCreateModal));
 document.querySelector('.menu-button').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('open'));
-document.querySelector('#prev-month').addEventListener('click', () => { document.querySelector('.calendar-toolbar h2').innerHTML = 'AGOSTO <span>2026</span>'; });
-document.querySelector('#next-month').addEventListener('click', () => { document.querySelector('.calendar-toolbar h2').innerHTML = 'OCTUBRE <span>2026</span>'; });
+document.querySelector('#prev-month').addEventListener('click', () => { calendarDate.setDate(calendarDate.getDate() + (calendarMode === 'week' ? -7 : 0)); if (calendarMode === 'month') calendarDate.setMonth(calendarDate.getMonth() - 1); buildCalendar(); });
+document.querySelector('#next-month').addEventListener('click', () => { calendarDate.setDate(calendarDate.getDate() + (calendarMode === 'week' ? 7 : 0)); if (calendarMode === 'month') calendarDate.setMonth(calendarDate.getMonth() + 1); buildCalendar(); });
+document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEventListener('click', () => {
+  calendarMode = button.dataset.calendarView;
+  document.querySelectorAll('[data-calendar-view]').forEach(item => item.classList.toggle('active', item === button));
+  buildCalendar();
+}));
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
