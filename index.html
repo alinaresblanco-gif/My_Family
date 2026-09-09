@@ -19,6 +19,21 @@
   <style>
     .avatar { overflow: hidden; }
     .avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+    .welcome, .welcome strong, .menu-button { color: var(--green); }
+    .notification-modal { max-width: 460px; }
+    .notification-modal h2 { margin: 8px 0 4px; }
+    .notification-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-right: 25px; }
+    .notification-list { display: grid; gap: 8px; margin-top: 20px; max-height: 340px; overflow-y: auto; }
+    .notification-item { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); display: grid; grid-template-columns: 10px 1fr; gap: 10px; padding: 12px; text-align: left; }
+    .notification-item.unread { background: #edf6ef; border-color: #c8ddcd; }
+    .notification-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; margin-top: 6px; }
+    .notification-item:not(.unread) .notification-dot { background: transparent; }
+    .notification-item strong, .notification-item small { display: block; }
+    .notification-item strong { font-size: 13px; margin-bottom: 3px; }
+    .notification-item small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .notification-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 28px 0; }
+    .notification-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
+    .notification-actions .secondary-button { padding: 9px 11px; }
     .event-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
     .event-form input, .event-form select { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
     .event-form input:focus, .event-form select:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
@@ -50,7 +65,7 @@
       <header class="topbar">
         <button class="menu-button" aria-label="Abrir menú">☰</button>
         <div class="welcome"><span id="greeting">Buenos días, familia</span><strong>¡Que tengáis un gran día!</strong></div>
-        <div class="top-actions"><button class="icon-button" title="Notificaciones">♢<em>2</em></button><div class="avatar"><img src="imagenes/lg.png" alt="Perfil de LG"></div></div>
+        <div class="top-actions"><button class="icon-button" id="notifications-button" title="Notificaciones" aria-label="Notificaciones" aria-haspopup="dialog">♢<em id="notification-count">2</em></button><div class="avatar"><img src="imagenes/lg.png" alt="Perfil de LG"></div></div>
       </header>
 
       <section id="view-inicio" class="view active-view">
@@ -92,6 +107,14 @@
         <p class="form-error" role="alert"></p>
         <div class="modal-actions"><button type="button" class="secondary-button modal-cancel">Cancelar</button><button type="submit" class="primary-button">Guardar Post-it</button></div>
       </form>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="notifications-modal" aria-hidden="true">
+    <div class="modal notification-modal" role="dialog" aria-modal="true" aria-labelledby="notifications-title">
+      <button class="modal-close notifications-close" aria-label="Cerrar">×</button>
+      <div class="notification-modal-head"><div><p class="section-kicker">CENTRO DE AVISOS</p><h2 id="notifications-title">Notificaciones</h2><p class="muted">Pulsa una notificación para cambiar su estado.</p></div></div>
+      <div class="notification-list" id="notification-list"></div>
+      <div class="notification-actions"><button class="secondary-button" id="mark-all-read">Marcar todas como leídas</button><button class="secondary-button" id="enable-device-notifications">Activar avisos</button></div>
     </div>
   </div>
   <script src="app.js"></script>

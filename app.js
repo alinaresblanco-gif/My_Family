@@ -12,9 +12,38 @@ const memberColorClasses = { antonio: 'papa', yayes: 'mama', ramsses: 'diego', r
 const grid = document.querySelector('#sticky-grid');
 const modal = document.querySelector('#event-modal');
 const eventForm = document.querySelector('.event-form');
+const notificationsModal = document.querySelector('#notifications-modal');
+const notificationList = document.querySelector('#notification-list');
+const defaultNotifications = [
+  { id: 1, title: 'Revisión médica', message: 'La cita de Antonio es hoy a las 08:30.', read: false },
+  { id: 2, title: 'Documento por caducar', message: 'El seguro del coche vence el 18 de octubre.', read: false }
+];
+const savedNotifications = localStorage.getItem('my-family-notifications');
+const notifications = savedNotifications ? JSON.parse(savedNotifications) : defaultNotifications;
 
 function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected').dataset.filter; }
+function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
+function renderNotifications() {
+  const unreadCount = notifications.filter(notification => !notification.read).length;
+  const count = document.querySelector('#notification-count');
+  count.textContent = unreadCount;
+  count.hidden = unreadCount === 0;
+  notificationList.innerHTML = notifications.length ? notifications.map(notification => `<button class="notification-item ${notification.read ? '' : 'unread'}" data-notification-id="${notification.id}"><i class="notification-dot"></i><span><strong>${notification.title}</strong><small>${notification.message}</small></span></button>`).join('') : '<p class="notification-empty">No tienes notificaciones.</p>';
+  notificationList.querySelectorAll('[data-notification-id]').forEach(button => button.addEventListener('click', () => {
+    const notification = notifications.find(item => item.id === Number(button.dataset.notificationId));
+    notification.read = !notification.read;
+    saveNotifications();
+    renderNotifications();
+  }));
+}
+function openNotificationsModal() { renderNotifications(); notificationsModal.classList.add('open'); notificationsModal.setAttribute('aria-hidden', 'false'); }
+function closeNotificationsModal() { notificationsModal.classList.remove('open'); notificationsModal.setAttribute('aria-hidden', 'true'); }
+async function enableDeviceNotifications() {
+  if (!('Notification' in window)) return;
+  const permission = await Notification.requestPermission();
+  if (permission === 'granted') new Notification('Avisos activados', { body: 'Recibirás las nuevas notificaciones de My Family en este dispositivo.', icon: 'imagenes/logo-myfamily.png' });
+}
 
 function renderEvents(filter = 'todos') {
   const visible = events.filter(event => filter === 'todos' || event.member === filter).sort((a, b) => a.time.localeCompare(b.time));
@@ -53,6 +82,12 @@ eventForm.addEventListener('submit', event => {
   if (existing) Object.assign(existing, data); else events.push({ ...data, id: Date.now(), done: false });
   saveEvents(); renderEvents(getActiveFilter()); closeModal();
 });
+document.querySelector('#notifications-button').addEventListener('click', openNotificationsModal);
+document.querySelector('.notifications-close').addEventListener('click', closeNotificationsModal);
+notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
+document.querySelector('#mark-all-read').addEventListener('click', () => { notifications.forEach(notification => { notification.read = true; }); saveNotifications(); renderNotifications(); });
+document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); } });
 
 function buildCalendar() {
   const calendar = document.querySelector('#calendar');
@@ -67,4 +102,4 @@ document.querySelector('#prev-month').addEventListener('click', () => { document
 document.querySelector('#next-month').addEventListener('click', () => { document.querySelector('.calendar-toolbar h2').innerHTML = 'OCTUBRE <span>2026</span>'; });
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
-renderEvents(); buildCalendar();
+renderEvents(); renderNotifications(); buildCalendar();

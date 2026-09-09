@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-family-v1';
+const CACHE_NAME = 'my-family-v2';
 const APP_FILES = [
   './',
   './index.html',
@@ -23,4 +23,18 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
+});
+
+self.addEventListener('push', event => {
+  const notification = event.data ? event.data.json() : {};
+  event.waitUntil(self.registration.showNotification(notification.title || 'My Family', {
+    body: notification.body || 'Tienes una nueva notificación.',
+    icon: './imagenes/logo-myfamily.png',
+    data: { url: notification.url || './' }
+  }));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data.url));
 });
