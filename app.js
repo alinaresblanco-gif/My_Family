@@ -7,7 +7,7 @@ const defaultEvents = [
 ];
 const savedEvents = localStorage.getItem('my-family-events');
 const events = savedEvents ? JSON.parse(savedEvents) : defaultEvents;
-const memberNames = { antonio: 'Antonio', yayes: 'Yayes', ramsses: 'Ramsses', rosa: 'Rosa' };
+const memberNames = { antonio: 'Antonio', yayes: 'Yayes', ramsses: 'Ramssés', rosa: 'Rosa' };
 const memberColorClasses = { antonio: 'papa', yayes: 'mama', ramsses: 'diego', rosa: 'lucia' };
 const grid = document.querySelector('#sticky-grid');
 const modal = document.querySelector('#event-modal');
