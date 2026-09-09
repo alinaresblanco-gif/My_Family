@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-family-v2';
+const CACHE_NAME = 'my-family-v3';
 const APP_FILES = [
   './',
   './index.html',

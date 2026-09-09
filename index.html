@@ -70,6 +70,10 @@
     .notification-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 28px 0; }
     .notification-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
     .notification-actions .secondary-button { padding: 9px 11px; }
+    .update-modal { max-width: 420px; text-align: center; }
+    .update-modal .update-icon { width: 48px; height: 48px; margin: 4px auto 14px; display: grid; place-items: center; border-radius: 50%; background: #e8f1eb; color: var(--green); font-size: 25px; }
+    .update-modal h2 { margin: 0 0 10px; }
+    .update-modal p { line-height: 1.5; }
     .event-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
     .event-form input, .event-form select { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
     .event-form input:focus, .event-form select:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
@@ -157,10 +161,21 @@
       <div class="notification-actions"><button class="secondary-button" id="mark-all-read">Marcar todas como leídas</button><button class="secondary-button" id="enable-device-notifications">Activar avisos</button></div>
     </div>
   </div>
+  <div class="modal-backdrop" id="update-modal" aria-hidden="true">
+    <div class="modal update-modal" role="dialog" aria-modal="true" aria-labelledby="update-title">
+      <div class="update-icon">↻</div>
+      <h2 id="update-title">Hay una actualización disponible</h2>
+      <p class="muted">My Family tiene cambios nuevos. Actualiza la aplicación para ver la última versión.</p>
+      <div class="modal-actions"><button class="secondary-button" id="update-later">Ahora no</button><button class="primary-button" id="update-app">Actualizar aplicación</button></div>
+    </div>
+  </div>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+      window.addEventListener('load', async () => {
+        const registration = await navigator.serviceWorker.register('./sw.js');
+        registration.update();
+      });
     }
   </script>
 </body>
