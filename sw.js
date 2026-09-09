@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-family-v3';
+const CACHE_NAME = 'my-family-v2026.9.9.3';
 const APP_FILES = [
   './',
   './index.html',
@@ -21,6 +21,10 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  if (new URL(event.request.url).pathname.endsWith('/version.json')) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    return;
+  }
   event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
 });
 

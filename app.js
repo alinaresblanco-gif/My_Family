@@ -1,4 +1,5 @@
-const APP_VERSION = '2026.09.09.2';
+const FALLBACK_APP_VERSION = '2026.09.09.2';
+let currentAppVersion = null;
 const defaultEvents = [
   { id: 1, member: 'antonio', name: 'Revisión médica', time: '08:30', place: 'Centro de salud familiar', category: '🏥 Médico', done: false },
   { id: 2, member: 'y' + 'ayes', name: 'Clases de piano', time: '16:00', place: 'Aula 3 · Conservatorio', category: '🎵 Actividad', done: false },
@@ -32,8 +33,20 @@ function todayEvents() { return events.filter(event => event.date === todayKey);
 function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
 function showUpdateModal() { updateModal.classList.add('open'); updateModal.setAttribute('aria-hidden', 'false'); }
-function closeUpdateModal() { updateModal.classList.remove('open'); updateModal.setAttribute('aria-hidden', 'true'); localStorage.setItem('my-family-update-version', APP_VERSION); }
-function checkForAppUpdate() { if (localStorage.getItem('my-family-update-version') !== APP_VERSION) showUpdateModal(); }
+function closeUpdateModal() { updateModal.classList.remove('open'); updateModal.setAttribute('aria-hidden', 'true'); localStorage.setItem('my-family-update-version', currentAppVersion); }
+function checkForAppUpdate() { if (localStorage.getItem('my-family-update-version') !== currentAppVersion) showUpdateModal(); }
+async function checkPublishedVersion() {
+  try {
+    const response = await fetch(`./version.json?ts=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) return;
+    const publishedVersion = (await response.json()).version;
+    currentAppVersion = publishedVersion || FALLBACK_APP_VERSION;
+    checkForAppUpdate();
+  } catch (error) {
+    currentAppVersion = FALLBACK_APP_VERSION;
+    checkForAppUpdate();
+  }
+}
 function renderNotifications() {
   const unreadCount = notifications.filter(notification => !notification.read).length;
   const count = document.querySelector('#notification-count');
@@ -100,7 +113,7 @@ document.querySelector('#mark-all-read').addEventListener('click', () => { notif
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
 document.querySelector('#update-later').addEventListener('click', closeUpdateModal);
 document.querySelector('#update-app').addEventListener('click', async () => {
-  localStorage.setItem('my-family-update-version', APP_VERSION);
+  localStorage.setItem('my-family-update-version', currentAppVersion);
   if ('serviceWorker' in navigator) {
     const registration = await navigator.serviceWorker.getRegistration();
     if (registration) await registration.update();
@@ -193,5 +206,6 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
-saveEvents(); renderEvents(); renderNotifications(); buildCalendar(); checkForAppUpdate();
+saveEvents(); renderEvents(); renderNotifications(); buildCalendar(); checkPublishedVersion();
+setInterval(checkPublishedVersion, 60000);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);

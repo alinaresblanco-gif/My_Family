@@ -1,0 +1,15 @@
+#!/bin/sh
+node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const versionPath = path.join(process.cwd(), 'version.json');
+const serviceWorkerPath = path.join(process.cwd(), 'sw.js');
+const versionData = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+const parts = versionData.version.split('.').map(Number);
+parts[parts.length - 1] += 1;
+versionData.version = parts.join('.');
+fs.writeFileSync(versionPath, `${JSON.stringify(versionData, null, 2)}\n`);
+const serviceWorker = fs.readFileSync(serviceWorkerPath, 'utf8').replace(/const CACHE_NAME = 'my-family-v[^']+';/, `const CACHE_NAME = 'my-family-v${versionData.version}';`);
+fs.writeFileSync(serviceWorkerPath, serviceWorker);
+NODE
+git add version.json sw.js
