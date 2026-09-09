@@ -104,6 +104,18 @@ function getWeekStart(date) {
   return weekStart;
 }
 function dateKey(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
+function renderUpcoming() {
+  const summary = document.querySelector('#agenda-upcoming');
+  const summaryPeriod = document.querySelector('#summary-period');
+  const weekStart = getWeekStart(calendarDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const startKey = dateKey(weekStart);
+  const endKey = dateKey(weekEnd);
+  const upcoming = events.filter(event => event.date >= startKey && event.date <= endKey).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  summaryPeriod.textContent = `${weekStart.getDate()}-${weekEnd.getDate()} ${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(weekEnd)}`;
+  summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}"><b>${event.time}</b><span class="member-dot ${memberColorClasses[event.member]}"></span><div><strong>${event.name}</strong><small>${memberNames[event.member]} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
+}
 function getWeekNumber(date) {
   const target = new Date(date);
   target.setHours(0, 0, 0, 0);
@@ -129,6 +141,7 @@ function renderWeek(calendar) {
 }
 function buildCalendar() {
   const calendar = document.querySelector('#calendar');
+  renderUpcoming();
   if (calendarMode === 'week') { renderWeek(calendar); return; }
   calendar.classList.remove('week-view');
   const headings = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
