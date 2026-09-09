@@ -76,6 +76,23 @@
     .update-modal .update-icon { width: 48px; height: 48px; margin: 4px auto 14px; display: grid; place-items: center; border-radius: 50%; background: #e8f1eb; color: var(--green); font-size: 25px; }
     .update-modal h2 { margin: 0 0 10px; }
     .update-modal p { line-height: 1.5; }
+    .recipe-modal { max-width: 560px; }
+    .recipe-modal h2 { margin: 6px 0 4px; }
+    .recipe-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
+    .recipe-form input, .recipe-form select, .recipe-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
+    .recipe-form textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
+    .recipe-form input:focus, .recipe-form select:focus, .recipe-form textarea:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
+    .recipe-image-picker { display: grid; grid-template-columns: 112px 1fr; gap: 14px; align-items: center; margin-top: 12px; }
+    .recipe-image-preview { width: 112px; height: 88px; display: grid; place-items: center; overflow: hidden; border: 1px dashed #a8beb0; border-radius: 7px; background: #edf6ef; color: var(--green); font-size: 27px; }
+    .recipe-image-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .recipe-image-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .recipe-image-actions label, .recipe-image-actions button { margin: 0; padding: 9px 11px; border-radius: 7px; background: #e8efe9; color: var(--green); font-size: 12px; font-weight: 700; cursor: pointer; }
+    .recipe-image-actions input { display: none; }
+    .recipe-help { color: var(--muted); font-size: 11px; margin: 7px 0 0; }
+    .recipe-form .modal-actions { margin-top: 20px; }
+    .recipe-card[data-recipe-id] { cursor: pointer; }
+    .recipe-card-image { width: 100%; height: 100%; object-fit: cover; }
+    @media (max-width: 480px) { .recipe-image-picker { grid-template-columns: 1fr; } .recipe-image-preview { width: 100%; height: 130px; } }
     .event-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
     .event-form input, .event-form select { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
     .event-form input:focus, .event-form select:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
@@ -124,7 +141,7 @@
 
       <section id="view-agenda" class="view"><div class="page-heading"><div><p class="section-kicker">PLANIFICACIÓN FAMILIAR</p><h1>Agenda</h1><p class="muted">Septiembre 2026 · Mira el mes de un vistazo.</p></div><button class="primary-button" id="add-event-agenda"><span>+</span> Nuevo evento</button></div><div class="calendar-toolbar"><button class="round-button" id="prev-month">‹</button><h2>SEPTIEMBRE <span>2026</span></h2><button class="round-button" id="next-month">›</button><div class="view-switch"><button class="switch active" data-calendar-view="month">Mes</button><button class="switch" data-calendar-view="week">Semana</button></div></div><div class="calendar-layout"><div class="calendar" id="calendar"></div><aside class="agenda-summary"><div class="summary-head"><h3>Próximos</h3><span id="summary-period">Esta semana</span></div><div id="agenda-upcoming"></div></aside></div></section>
 
-      <section id="view-recetas" class="view"><div class="page-heading"><div><p class="section-kicker">COCINA DE NUESTRA FAMILIA</p><h1>Recetas familiares</h1><p class="muted">Los sabores que hacen hogar.</p></div><button class="primary-button"><span>+</span> Nueva receta</button></div><div class="search-box">⌕ <input placeholder="Buscar por receta o ingrediente..."><span>⌘ K</span></div><div class="recipe-feature"><div class="recipe-photo">🍲</div><div><span class="tag">RECETA DE LA SEMANA</span><h2>Arroz de la abuela Carmen</h2><p>El clásico de los domingos. Una receta para cocinar sin prisa y repetir siempre.</p><div class="recipe-meta"><span>◷ 45 min</span><span>♨ Fácil</span><span>♥ 12 favoritos</span></div></div></div><div class="section-row"><h2>Libro de recetas</h2><span class="muted">6 recetas guardadas</span></div><div class="recipe-grid"><article class="recipe-card"><div class="recipe-art pasta">🍝</div><strong>Pasta de los viernes</strong><small>Rápidos · 25 min</small></article><article class="recipe-card"><div class="recipe-art cake">🍰</div><strong>Tarta de manzana</strong><small>Postres · 60 min</small></article><article class="recipe-card"><div class="recipe-art salad">🥗</div><strong>Ensalada fresca</strong><small>Saludables · 15 min</small></article></div></section>
+      <section id="view-recetas" class="view"><div class="page-heading"><div><p class="section-kicker">COCINA DE NUESTRA FAMILIA</p><h1>Recetas familiares</h1><p class="muted">Los sabores que hacen hogar.</p></div><button class="primary-button" id="add-recipe"><span>+</span> Nueva receta</button></div><div class="search-box">⌕ <input id="recipe-search" placeholder="Buscar por receta o ingrediente..."><span>⌘ K</span></div><div class="recipe-feature"><div class="recipe-photo">🍲</div><div><span class="tag">RECETA DE LA SEMANA</span><h2>Arroz de la abuela Carmen</h2><p>El clásico de los domingos. Una receta para cocinar sin prisa y repetir siempre.</p><div class="recipe-meta"><span>◷ 45 min</span><span>♨ Fácil</span><span>♥ 12 favoritos</span></div></div></div><div class="section-row"><h2>Libro de recetas</h2><span class="muted" id="recipe-count">6 recetas guardadas</span></div><div class="recipe-grid" id="recipe-grid"><article class="recipe-card"><div class="recipe-art pasta">🍝</div><strong>Pasta de los viernes</strong><small>Rápidos · 25 min</small></article><article class="recipe-card"><div class="recipe-art cake">🍰</div><strong>Tarta de manzana</strong><small>Postres · 60 min</small></article><article class="recipe-card"><div class="recipe-art salad">🥗</div><strong>Ensalada fresca</strong><small>Saludables · 15 min</small></article></div></section>
 
       <section id="view-documentos" class="view"><div class="page-heading"><div><p class="section-kicker">ARCHIVO FAMILIAR</p><h1>Documentos</h1><p class="muted">Todo importante, protegido y a mano.</p></div><button class="primary-button"><span>↑</span> Subir documento</button></div><div class="storage-banner"><div class="storage-icon">▤</div><div><strong>Tu archivo familiar</strong><p>12 documentos · 1.8 GB utilizados</p></div><div class="storage-bar"><i></i></div><span>18%</span></div><div class="folder-grid"><div class="folder"><span>▣</span><strong>Seguros</strong><small>3 documentos</small></div><div class="folder"><span>▣</span><strong>Salud y vacunas</strong><small>4 documentos</small><b class="warning">1 por caducar</b></div><div class="folder"><span>▣</span><strong>Coche</strong><small>2 documentos</small></div><div class="folder"><span>▣</span><strong>Identidad</strong><small>3 documentos</small></div></div><div class="section-row"><h2>Revisar pronto</h2><span class="muted">Vencen en los próximos 90 días</span></div><div class="document-list"><div><span class="file-icon pdf">PDF</span><strong>Seguro del coche</strong><small>Vence el 18 de octubre de 2026</small><b>›</b></div><div><span class="file-icon jpg">JPG</span><strong>Documento de Rosa</strong><small>Actualizado el 02 de septiembre de 2026</small><b>›</b></div></div></section>
 
@@ -169,6 +186,23 @@
       <h2 id="update-title">Hay una actualización disponible</h2>
       <p class="muted">My Family tiene cambios nuevos. Actualiza la aplicación para ver la última versión.</p>
       <div class="modal-actions"><button class="secondary-button" id="update-later">Ahora no</button><button class="primary-button" id="update-app">Actualizar aplicación</button></div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="recipe-modal" aria-hidden="true">
+    <div class="modal recipe-modal" role="dialog" aria-modal="true" aria-labelledby="recipe-modal-title">
+      <button class="modal-close recipe-modal-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">LIBRO DE RECETAS</p>
+      <h2 id="recipe-modal-title">Nueva receta</h2>
+      <form class="recipe-form" id="recipe-form" novalidate>
+        <div class="recipe-image-picker"><div class="recipe-image-preview" id="recipe-image-preview">🍲</div><div><div class="recipe-image-actions"><label for="recipe-gallery">Galería<input id="recipe-gallery" type="file" accept="image/*"></label><label for="recipe-camera">Hacer una foto<input id="recipe-camera" type="file" accept="image/*" capture="environment"></label><button type="button" id="remove-recipe-image">Quitar imagen</button></div><p class="recipe-help">La imagen será la portada de la receta.</p></div></div>
+        <label>Nombre de la receta<input name="name" required maxlength="80" placeholder="Ej. Tortilla de patatas"></label>
+        <div class="form-row"><label>Categoría<select name="category"><option>Familiares</option><option>Rápidos</option><option>Saludables</option><option>Postres</option><option>Favoritas</option></select></label><label>Tiempo<input name="time" required maxlength="20" placeholder="Ej. 35 min"></label></div>
+        <label>Raciones<input name="servings" maxlength="30" placeholder="Ej. 4 personas"></label>
+        <label>Ingredientes<textarea name="ingredients" required placeholder="Tomates\nAceite de oliva\nSal"></textarea></label>
+        <label>Elaboración<textarea name="steps" required placeholder="1. Lava y corta los ingredientes.\n2. Cocina a fuego medio..."></textarea></label>
+        <p class="form-error" id="recipe-form-error" role="alert"></p>
+        <div class="modal-actions"><button type="button" class="secondary-button recipe-modal-close">Cerrar</button><button type="submit" class="primary-button">Guardar receta</button></div>
+      </form>
     </div>
   </div>
   <script src="app.js"></script>

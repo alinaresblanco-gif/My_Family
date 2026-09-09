@@ -26,12 +26,43 @@ const defaultNotifications = [
 ];
 const savedNotifications = localStorage.getItem('my-family-notifications');
 const notifications = savedNotifications ? JSON.parse(savedNotifications) : defaultNotifications;
+const recipeModal = document.querySelector('#recipe-modal');
+const recipeForm = document.querySelector('#recipe-form');
+const recipeImagePreview = document.querySelector('#recipe-image-preview');
+const recipeImageInputs = document.querySelectorAll('#recipe-gallery, #recipe-camera');
+const savedRecipes = localStorage.getItem('my-family-recipes');
+const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
 
 function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected').dataset.filter; }
 function todayEvents() { return events.filter(event => event.date === todayKey); }
 function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
+function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); }
+function closeRecipeModal() { recipeModal.classList.remove('open'); recipeModal.setAttribute('aria-hidden', 'true'); }
+function resetRecipeImage() { recipeForm.dataset.image = ''; recipeImagePreview.innerHTML = '🍲'; recipeImageInputs.forEach(input => { input.value = ''; }); }
+function readRecipeImage(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener('load', () => { recipeForm.dataset.image = reader.result; recipeImagePreview.innerHTML = `<img src="${reader.result}" alt="Vista previa de la receta">`; });
+  reader.readAsDataURL(file);
+}
+function openRecipeModal() { recipeForm.reset(); recipeForm.dataset.image = ''; resetRecipeImage(); document.querySelector('#recipe-form-error').textContent = ''; recipeModal.classList.add('open'); recipeModal.setAttribute('aria-hidden', 'false'); }
+function recipeIcon(category) { return { Postres: '🍰', Saludables: '🥗', Rápidos: '🍳', Favoritas: '⭐' }[category] || '🍲'; }
+function renderRecipes(search = '') {
+  const query = search.trim().toLowerCase();
+  const visible = recipes.filter(recipe => `${recipe.name} ${recipe.ingredients} ${recipe.category}`.toLowerCase().includes(query));
+  const gridElement = document.querySelector('#recipe-grid');
+  gridElement.querySelectorAll('[data-recipe-id]').forEach(card => card.remove());
+  visible.forEach(recipe => {
+    const card = document.createElement('article');
+    card.className = 'recipe-card';
+    card.dataset.recipeId = recipe.id;
+    card.innerHTML = `${recipe.image ? `<div class="recipe-art"><img class="recipe-card-image" src="${recipe.image}" alt="${recipe.name}"></div>` : `<div class="recipe-art">${recipeIcon(recipe.category)}</div>`}<strong>${recipe.name}</strong><small>${recipe.category} · ${recipe.time}${recipe.servings ? ` · ${recipe.servings}` : ''}</small><small>🧂 ${recipe.ingredients.split(/\r?\n/).filter(Boolean).length} ingredientes</small>`;
+    gridElement.appendChild(card);
+  });
+  document.querySelector('#recipe-count').textContent = `${6 + recipes.length} recetas guardadas`;
+}
 function showUpdateModal() { updateModal.classList.add('open'); updateModal.setAttribute('aria-hidden', 'false'); }
 function closeUpdateModal() { updateModal.classList.remove('open'); updateModal.setAttribute('aria-hidden', 'true'); localStorage.setItem('my-family-update-version', currentAppVersion); }
 function checkForAppUpdate() { if (localStorage.getItem('my-family-update-version') !== currentAppVersion) showUpdateModal(); }
@@ -106,6 +137,19 @@ eventForm.addEventListener('submit', event => {
   if (existing) Object.assign(existing, data); else events.push({ ...data, id: Date.now(), done: false });
   saveEvents(); renderEvents(getActiveFilter()); closeModal();
 });
+document.querySelector('#add-recipe').addEventListener('click', openRecipeModal);
+document.querySelectorAll('.recipe-modal-close').forEach(button => button.addEventListener('click', closeRecipeModal));
+recipeModal.addEventListener('click', event => { if (event.target === recipeModal) closeRecipeModal(); });
+recipeImageInputs.forEach(input => input.addEventListener('change', event => readRecipeImage(event.target.files[0])));
+document.querySelector('#remove-recipe-image').addEventListener('click', resetRecipeImage);
+recipeForm.addEventListener('submit', event => {
+  event.preventDefault();
+  if (!recipeForm.checkValidity()) { document.querySelector('#recipe-form-error').textContent = 'Completa el nombre, los ingredientes y la elaboración.'; return; }
+  const data = Object.fromEntries(new FormData(recipeForm));
+  recipes.push({ ...data, id: Date.now(), image: recipeForm.dataset.image || '' });
+  saveRecipes(); renderRecipes(document.querySelector('#recipe-search').value); closeRecipeModal();
+});
+document.querySelector('#recipe-search').addEventListener('input', event => renderRecipes(event.target.value));
 document.querySelector('#notifications-button').addEventListener('click', openNotificationsModal);
 document.querySelector('.notifications-close').addEventListener('click', closeNotificationsModal);
 notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
@@ -120,7 +164,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); closeRecipeModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
@@ -206,6 +250,6 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
-saveEvents(); renderEvents(); renderNotifications(); buildCalendar(); checkPublishedVersion();
+saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); buildCalendar(); checkPublishedVersion();
 setInterval(checkPublishedVersion, 60000);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);
