@@ -6,7 +6,7 @@ const APP_FILES = [
   './app.js',
   './manifest.json',
   './imagenes/logo-myfamily.png',
-  './imagenes/logo-myfamily-trans.png'
+  './imagenes/logo-myfamily-trans-ok.png'
 ];
 
 self.addEventListener('install', event => {
