@@ -111,6 +111,19 @@
     .document-expiry { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
     .document-expiry label { margin-top: 14px; }
     .document-form .modal-actions { margin-top: 20px; }
+    .settings-section-title { padding: 18px 18px 8px; color: var(--green); font: 800 12px Manrope; letter-spacing: .7px; }
+    .settings-control { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 18px; border-top: 1px solid var(--line); }
+    .settings-control > div { display: grid; gap: 4px; }
+    .settings-control strong { font-size: 13px; }
+    .settings-control small { color: var(--muted); font-size: 11px; }
+    .settings-control select, .settings-control input[type="color"] { border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); padding: 7px; font: 12px 'DM Sans', sans-serif; }
+    .settings-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px 18px; border-top: 1px solid var(--line); }
+    .settings-actions button { background: #e8efe9; color: var(--green); padding: 9px 11px; border-radius: 7px; font-size: 12px; font-weight: 700; }
+    .settings-modal { max-width: 460px; max-height: calc(100vh - 32px); overflow-y: auto; }
+    .settings-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
+    .settings-form input, .settings-form select { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 13px 'DM Sans', sans-serif; padding: 10px; }
+    [data-theme="dark"] { --paper: #17241f; --ink: #e8f1eb; --deep: #d9eee1; --muted: #a5b8ad; --line: #345044; }
+    [data-theme="dark"] .sidebar, [data-theme="dark"] .topbar, [data-theme="dark"] .modal, [data-theme="dark"] .settings-list, [data-theme="dark"] .settings-control select { background: #20332b; }
     .member-modal { max-width: 520px; max-height: calc(100vh - 32px); overflow-y: auto; }
     .member-modal h2 { margin: 6px 0 4px; }
     .member-form label { display: flex; flex-direction: column; gap: 6px; color: var(--ink); font-size: 12px; font-weight: 700; margin-top: 14px; }
@@ -187,7 +200,7 @@
       <section id="view-documentos" class="view"><div class="page-heading"><div><p class="section-kicker">ARCHIVO DE DOCUMENTOS FAMILIARES</p><h1>Documentoteca</h1><p class="muted">Todo importante, protegido y a mano.</p></div><button class="primary-button" id="upload-document"><span>↑</span> Subir documento</button></div><div class="storage-banner"><div class="storage-icon">▤</div><div><strong>Archivos de documentos familiares</strong><p id="document-storage-text">0 documentos · Google Sheets (pendiente de conexión)</p></div><div class="storage-bar"><i id="document-storage-bar"></i></div><span id="document-storage-percent">0%</span></div><div class="folder-grid" id="folder-grid"><div class="folder"><span>▣</span><strong>Identidad y registros</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Educación</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Salud</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Finanzas y hogar</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Vehículos</strong><small>0 documentos</small></div><div class="folder"><span>▣</span><strong>Eventos y recuerdos</strong><small>0 documentos</small></div></div><div class="section-row document-review-heading"><h2>Revisar pronto</h2><span class="muted">Vencen en los próximos 90 días</span></div><div class="document-list" id="document-list"></div></section>
       <section id="view-miembros" class="view"><div class="page-heading"><div><p class="section-kicker">NUESTRA FAMILIA</p><h1>Miembros</h1><p class="muted">Cada persona, con su color y su espacio.</p></div><button class="primary-button" id="add-member"><span>+</span> Añadir miembro</button></div><div class="family-grid" id="family-grid"></div></section>
 
-      <section id="view-ajustes" class="view"><div class="page-heading"><div><p class="section-kicker">PERSONALIZA LA EXPERIENCIA</p><h1>Ajustes</h1><p class="muted">Preferencias de vuestra agenda familiar.</p></div></div><div class="settings-list"><div><span>🔔</span><div><strong>Notificaciones</strong><small id="notifications-setting-status">Recibe avisos de eventos y documentos</small></div><label class="toggle"><input id="notifications-setting" type="checkbox" checked><i></i></label></div><div><span>◌</span><div><strong>Sincronización</strong><small id="sync-setting-status">Preparado para conectar con Google Sheets</small></div><label class="toggle"><input id="sync-setting" type="checkbox" checked><i></i></label></div></div></section>
+      <section id="view-ajustes" class="view"><div class="page-heading"><div><p class="section-kicker">PERSONALIZA LA EXPERIENCIA</p><h1>Ajustes</h1><p class="muted">Preferencias de vuestra agenda familiar.</p></div></div><div class="settings-list"><div class="settings-section-title">FAMILIA</div><div class="settings-control"><div><strong>Perfil familiar</strong><small id="family-profile-status">Nombre y avatar de la familia</small></div><button class="secondary-button" id="open-family-profile">Editar</button></div><div class="settings-section-title">AGENDA Y AVISOS</div><div class="settings-control"><div><strong>Notificaciones</strong><small id="notifications-setting-status">Recibe avisos de eventos y documentos</small></div><label class="toggle"><input id="notifications-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Recordatorios de eventos</strong><small>Avísame antes de los Post-it importantes</small></div><label class="toggle"><input id="event-reminders-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Recordatorios de documentos</strong><small>Avisa cuando un documento vaya a vencer</small></div><label class="toggle"><input id="document-reminders-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Sincronización</strong><small id="sync-setting-status">Preparado para conectar con Google Sheets</small></div><label class="toggle"><input id="sync-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Vista inicial de Agenda</strong><small>Elige cómo abrir el calendario</small></div><select id="default-calendar-view"><option value="month">Mes</option><option value="week">Semana</option></select></div><div class="settings-control"><div><strong>Formato de hora</strong><small>Preferencia para eventos</small></div><select id="time-format"><option value="24">24 horas</option><option value="12">12 horas</option></select></div><div class="settings-section-title">APARIENCIA Y PRIVACIDAD</div><div class="settings-control"><div><strong>Apariencia</strong><small>Claro, oscuro o automático</small></div><select id="appearance-setting"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="auto">Automático</option></select></div><div class="settings-control"><div><strong>Privacidad</strong><small id="pin-setting-status">Protege la app con un PIN local</small></div><label class="toggle"><input id="pin-setting" type="checkbox"><i></i></label></div><div class="settings-section-title">DATOS Y ALMACENAMIENTO</div><div class="settings-control"><div><strong>Copias de seguridad</strong><small id="storage-setting-status">Exporta o importa tus datos locales</small></div><div class="settings-actions"><button id="export-data">Exportar</button><button id="import-data">Importar</button><input id="import-data-file" type="file" accept="application/json" hidden></div></div><div class="settings-control"><div><strong>Información de la app</strong><small id="app-info-status">My Family · Datos locales</small></div><span id="app-version-label">v2026.09.09.2</span></div></div></section>
     </main>
   </div>
   <div class="modal-backdrop" id="event-modal" aria-hidden="true">
@@ -226,6 +239,26 @@
       <h2 id="update-title">Hay una actualización disponible</h2>
       <p class="muted">My Family tiene cambios nuevos. Actualiza la aplicación para ver la última versión.</p>
       <div class="modal-actions"><button class="secondary-button" id="update-later">Ahora no</button><button class="primary-button" id="update-app">Actualizar aplicación</button></div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="family-profile-modal" aria-hidden="true">
+    <div class="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="family-profile-title">
+      <button class="modal-close family-profile-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">FAMILIA</p><h2 id="family-profile-title">Perfil familiar</h2>
+      <form class="settings-form" id="family-profile-form"><label>Nombre de la familia<input name="name" required maxlength="60" placeholder="Ej. Familia García"></label><label>Avatar o símbolo<input name="avatar" maxlength="4" placeholder="🏡"></label><div class="modal-actions"><button type="button" class="secondary-button family-profile-close">Cerrar</button><button type="submit" class="primary-button">Guardar cambios</button></div></form>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="pin-modal" aria-hidden="true">
+    <div class="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="pin-title">
+      <button class="modal-close pin-modal-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">PRIVACIDAD</p><h2 id="pin-title">Configurar PIN</h2>
+      <form class="settings-form" id="pin-form"><label>PIN de 4 dígitos<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required placeholder="••••"></label><p class="form-error" id="pin-form-error" role="alert"></p><div class="modal-actions"><button type="button" class="secondary-button pin-modal-close">Cancelar</button><button type="submit" class="primary-button">Guardar PIN</button></div></form>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="app-lock-modal" aria-hidden="true">
+    <div class="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="app-lock-title">
+      <div class="update-icon">🔒</div><h2 id="app-lock-title">My Family está protegida</h2><p class="muted">Introduce tu PIN para continuar.</p>
+      <form class="settings-form" id="app-lock-form"><label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autofocus></label><p class="form-error" id="app-lock-error" role="alert"></p><div class="modal-actions"><button type="submit" class="primary-button">Desbloquear</button></div></form>
     </div>
   </div>
   <div class="modal-backdrop" id="recipe-modal" aria-hidden="true">

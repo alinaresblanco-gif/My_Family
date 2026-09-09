@@ -27,7 +27,7 @@ const defaultNotifications = [
 const savedNotifications = localStorage.getItem('my-family-notifications');
 const notifications = savedNotifications ? JSON.parse(savedNotifications) : defaultNotifications;
 const savedSettings = JSON.parse(localStorage.getItem('my-family-settings') || '{}');
-const settings = { notifications: savedSettings.notifications !== false, sync: savedSettings.sync !== false };
+const settings = { notifications: savedSettings.notifications !== false, sync: savedSettings.sync !== false, eventReminders: savedSettings.eventReminders !== false, documentReminders: savedSettings.documentReminders !== false, defaultView: savedSettings.defaultView || 'month', timeFormat: savedSettings.timeFormat || '24', appearance: savedSettings.appearance || 'light', familyName: savedSettings.familyName || 'My Family', familyAvatar: savedSettings.familyAvatar || '🏡', pinEnabled: savedSettings.pinEnabled === true };
 const recipeModal = document.querySelector('#recipe-modal');
 const recipeForm = document.querySelector('#recipe-form');
 const recipeImagePreview = document.querySelector('#recipe-image-preview');
@@ -67,6 +67,17 @@ function renderSettings() {
   document.querySelector('#notifications-setting-status').textContent = settings.notifications ? 'Recibe avisos de eventos y documentos' : 'Avisos pausados en este dispositivo';
   document.querySelector('#sync-setting-status').textContent = settings.sync ? 'Preparado para conectar con Google Sheets' : 'Sincronización pausada';
   document.querySelector('#notifications-button').disabled = !settings.notifications;
+  document.querySelector('#event-reminders-setting').checked = settings.eventReminders;
+  document.querySelector('#document-reminders-setting').checked = settings.documentReminders;
+  document.querySelector('#default-calendar-view').value = settings.defaultView;
+  document.querySelector('#time-format').value = settings.timeFormat;
+  document.querySelector('#appearance-setting').value = settings.appearance;
+  document.querySelector('#pin-setting').checked = settings.pinEnabled;
+  document.querySelector('#family-profile-status').textContent = `${settings.familyName} ${settings.familyAvatar}`;
+  document.querySelector('#pin-setting-status').textContent = settings.pinEnabled ? 'PIN activado en este dispositivo' : 'Protege la app con un PIN local';
+  document.querySelector('#app-info-status').textContent = `${settings.familyName} · Datos locales`;
+  document.querySelector('#app-version-label').textContent = `v${currentAppVersion || FALLBACK_APP_VERSION}`;
+  document.body.dataset.theme = settings.appearance === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : settings.appearance;
 }
 function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); }
 function saveDocuments() { localStorage.setItem('my-family-documents', JSON.stringify(documents)); }
@@ -298,6 +309,32 @@ document.querySelector('#mark-all-read').addEventListener('click', () => { notif
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
 document.querySelector('#notifications-setting').addEventListener('change', event => { settings.notifications = event.target.checked; saveSettings(); renderSettings(); if (!settings.notifications) closeNotificationsModal(); });
 document.querySelector('#sync-setting').addEventListener('change', event => { settings.sync = event.target.checked; saveSettings(); renderSettings(); });
+document.querySelector('#event-reminders-setting').addEventListener('change', event => { settings.eventReminders = event.target.checked; saveSettings(); renderSettings(); });
+document.querySelector('#document-reminders-setting').addEventListener('change', event => { settings.documentReminders = event.target.checked; saveSettings(); renderSettings(); });
+document.querySelector('#default-calendar-view').addEventListener('change', event => { settings.defaultView = event.target.value; saveSettings(); });
+document.querySelector('#time-format').addEventListener('change', event => { settings.timeFormat = event.target.value; saveSettings(); });
+document.querySelector('#appearance-setting').addEventListener('change', event => { settings.appearance = event.target.value; saveSettings(); renderSettings(); });
+const familyProfileModal = document.querySelector('#family-profile-modal');
+const familyProfileForm = document.querySelector('#family-profile-form');
+const pinModal = document.querySelector('#pin-modal');
+const pinForm = document.querySelector('#pin-form');
+const appLockModal = document.querySelector('#app-lock-modal');
+const appLockForm = document.querySelector('#app-lock-form');
+function closeFamilyProfile() { familyProfileModal.classList.remove('open'); familyProfileModal.setAttribute('aria-hidden', 'true'); }
+function closePinModal() { pinModal.classList.remove('open'); pinModal.setAttribute('aria-hidden', 'true'); }
+function checkPinLock() { if (settings.pinEnabled && localStorage.getItem('my-family-pin')) { appLockModal.classList.add('open'); appLockModal.setAttribute('aria-hidden', 'false'); } }
+document.querySelector('#open-family-profile').addEventListener('click', () => { familyProfileForm.elements.name.value = settings.familyName; familyProfileForm.elements.avatar.value = settings.familyAvatar; familyProfileModal.classList.add('open'); familyProfileModal.setAttribute('aria-hidden', 'false'); });
+document.querySelectorAll('.family-profile-close').forEach(button => button.addEventListener('click', closeFamilyProfile));
+familyProfileModal.addEventListener('click', event => { if (event.target === familyProfileModal) closeFamilyProfile(); });
+familyProfileForm.addEventListener('submit', event => { event.preventDefault(); const data = Object.fromEntries(new FormData(familyProfileForm)); settings.familyName = data.name; settings.familyAvatar = data.avatar || '🏡'; saveSettings(); renderSettings(); closeFamilyProfile(); });
+document.querySelector('#pin-setting').addEventListener('change', event => { if (event.target.checked) { pinModal.classList.add('open'); pinModal.setAttribute('aria-hidden', 'false'); } else { settings.pinEnabled = false; localStorage.removeItem('my-family-pin'); saveSettings(); renderSettings(); } });
+document.querySelectorAll('.pin-modal-close').forEach(button => button.addEventListener('click', () => { closePinModal(); if (!settings.pinEnabled) { document.querySelector('#pin-setting').checked = false; } }));
+pinModal.addEventListener('click', event => { if (event.target === pinModal) closePinModal(); });
+pinForm.addEventListener('submit', event => { event.preventDefault(); if (!pinForm.checkValidity()) { document.querySelector('#pin-form-error').textContent = 'El PIN debe tener 4 dígitos.'; return; } localStorage.setItem('my-family-pin', pinForm.elements.pin.value); settings.pinEnabled = true; saveSettings(); renderSettings(); closePinModal(); });
+appLockForm.addEventListener('submit', event => { event.preventDefault(); if (appLockForm.elements.pin.value === localStorage.getItem('my-family-pin')) { appLockModal.classList.remove('open'); appLockModal.setAttribute('aria-hidden', 'true'); appLockForm.reset(); } else document.querySelector('#app-lock-error').textContent = 'PIN incorrecto.'; });
+document.querySelector('#export-data').addEventListener('click', () => { const backup = { version: currentAppVersion || FALLBACK_APP_VERSION, exportedAt: new Date().toISOString(), events, notifications, recipes, documents, members, settings }; const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })); link.download = 'my-family-backup.json'; link.click(); URL.revokeObjectURL(link.href); });
+document.querySelector('#import-data').addEventListener('click', () => document.querySelector('#import-data-file').click());
+document.querySelector('#import-data-file').addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.addEventListener('load', () => { try { const backup = JSON.parse(reader.result); ['events', 'notifications', 'recipes', 'documents', 'members', 'settings'].forEach(key => { if (backup[key]) localStorage.setItem(`my-family-${key}`, JSON.stringify(backup[key])); }); location.reload(); } catch (error) { document.querySelector('#storage-setting-status').textContent = 'Archivo de copia no válido'; } }); reader.readAsText(file); });
 document.querySelector('#update-later').addEventListener('click', closeUpdateModal);
 document.querySelector('#update-app').addEventListener('click', async () => {
   localStorage.setItem('my-family-update-version', currentAppVersion);
@@ -379,7 +416,7 @@ function buildCalendar() {
     return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}">${displayedDay}<div class="dots">${dots}</div></div>`;
   }).join('');
 }
-document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const view = link.dataset.view; document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); document.querySelector(`#view-${view}`).classList.add('active-view'); document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelector('.sidebar').classList.remove('open'); }));
+document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const view = link.dataset.view; document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); document.querySelector(`#view-${view}`).classList.add('active-view'); document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); if (view === 'agenda') { calendarMode = settings.defaultView; calendarDate = new Date(today); document.querySelectorAll('[data-calendar-view]').forEach(item => item.classList.toggle('active', item.dataset.calendarView === calendarMode)); buildCalendar(); } document.querySelector('.sidebar').classList.remove('open'); }));
 document.querySelectorAll('#add-event, #add-event-agenda').forEach(button => button.addEventListener('click', openCreateModal));
 document.querySelector('.menu-button').addEventListener('click', () => document.querySelector('.sidebar').classList.toggle('open'));
 document.querySelector('#prev-month').addEventListener('click', () => { calendarDate.setDate(calendarDate.getDate() + (calendarMode === 'week' ? -7 : 0)); if (calendarMode === 'month') calendarDate.setMonth(calendarDate.getMonth() - 1); buildCalendar(); });
@@ -393,6 +430,6 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
-saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion();
+saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion(); checkPinLock();
 setInterval(checkPublishedVersion, 60000);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);
