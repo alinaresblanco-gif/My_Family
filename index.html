@@ -20,9 +20,13 @@
     .avatar { overflow: hidden; }
     .avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
     .welcome, .welcome strong, .menu-button { color: var(--green); }
+    .topbar { position: sticky; top: 0; z-index: 2; background: var(--paper); border-bottom: 3px solid var(--green); }
     #view-inicio .page-heading { position: relative; justify-content: center; }
     #view-inicio .page-heading > div:first-child { text-align: center; }
+    #view-inicio .page-heading h1 { color: var(--green); }
     #view-inicio #add-event { position: absolute; right: 0; }
+    #view-inicio .stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    #view-inicio .stat-item { min-width: 0; }
     .notification-modal { max-width: 460px; }
     .notification-modal h2 { margin: 8px 0 4px; }
     .notification-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-right: 25px; }
@@ -44,6 +48,7 @@
     .form-error { min-height: 16px; color: #ba3f34; font-size: 12px; margin: 10px 0 0; }
     .event-form .modal-actions { margin-top: 18px; }
     @media (max-width: 800px) { #view-inicio .page-heading { position: static; } #view-inicio .page-heading > div:first-child { width: 100%; } #view-inicio #add-event { position: static; } }
+    @media (max-width: 480px) { #view-inicio .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } #view-inicio .stat-item:nth-child(3) { grid-column: 1 / -1; justify-self: center; } }
     @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; gap: 0; } }
   </style>
 </head>
