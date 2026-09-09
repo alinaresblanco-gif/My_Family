@@ -95,7 +95,7 @@ document.querySelector('#mark-all-read').addEventListener('click', () => { notif
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
 document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); } });
 
-let calendarDate = new Date(2026, 8, 1);
+let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
 function getWeekStart(date) {
   const weekStart = new Date(date);
@@ -155,6 +155,7 @@ document.querySelector('.menu-button').addEventListener('click', () => document.
 document.querySelector('#prev-month').addEventListener('click', () => { calendarDate.setDate(calendarDate.getDate() + (calendarMode === 'week' ? -7 : 0)); if (calendarMode === 'month') calendarDate.setMonth(calendarDate.getMonth() - 1); buildCalendar(); });
 document.querySelector('#next-month').addEventListener('click', () => { calendarDate.setDate(calendarDate.getDate() + (calendarMode === 'week' ? 7 : 0)); if (calendarMode === 'month') calendarDate.setMonth(calendarDate.getMonth() + 1); buildCalendar(); });
 document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEventListener('click', () => {
+  if (button.dataset.calendarView === 'week' && calendarMode === 'month') calendarDate = new Date(today);
   calendarMode = button.dataset.calendarView;
   document.querySelectorAll('[data-calendar-view]').forEach(item => item.classList.toggle('active', item === button));
   buildCalendar();
