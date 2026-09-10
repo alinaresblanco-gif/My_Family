@@ -1,4 +1,6 @@
 const FALLBACK_APP_VERSION = '2026.09.09.2';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwGPK6njz5Y831B-ABIYpYbgyTiXgylXqa4aRvmS9Kw96vW0nB_mYtA3g4yvCPnxlLn/exec';
+const FAMILY_ID = 'family-my-family';
 let currentAppVersion = null;
 const defaultEvents = [
   { id: 1, member: 'antonio', name: 'Revisión médica', time: '08:30', place: 'Centro de salud familiar', category: '🏥 Médico', done: false },
@@ -55,12 +57,23 @@ const builtInRecipes = [
   { name: 'Ensalada fresca', category: 'Saludables', time: '15 min', servings: '', ingredients: 'Lechuga\nTomate\nAceite de oliva', steps: 'Lava, corta y mezcla todos los ingredientes.', image: '', description: 'Una opción ligera y llena de sabor.' }
 ];
 
-function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); }
+function apiRequest(action, data = {}) {
+  if (!settings.sync || !SHEETS_API_URL) return Promise.resolve(null);
+  return fetch(SHEETS_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, familyId: FAMILY_ID, ...data }) })
+    .then(response => response.ok ? response.json() : null)
+    .catch(() => null);
+}
+function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled !== false, reminderMinutesBefore: event.reminderMinutesBefore || '', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
+function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); events.forEach(event => apiRequest('eventUpsert', { data: eventPayload(event) })); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected').dataset.filter; }
-function todayEvents() { return events.filter(event => event.date === todayKey); }
+function eventDateKey(event) { return String(event.date || '').slice(0, 10); }
+function todayEvents() { return events.filter(event => eventDateKey(event) === todayKey); }
 function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
-function saveSettings() { localStorage.setItem('my-family-settings', JSON.stringify(settings)); }
+function saveSettings() { localStorage.setItem('my-family-settings', JSON.stringify(settings)); apiRequest('settingsUpdate', { data: settingsPayload() }); }
 function renderSettings() {
   document.querySelector('#notifications-setting').checked = settings.notifications;
   document.querySelector('#sync-setting').checked = settings.sync;
@@ -79,9 +92,28 @@ function renderSettings() {
   document.querySelector('#app-version-label').textContent = `v${currentAppVersion || FALLBACK_APP_VERSION}`;
   document.body.dataset.theme = settings.appearance === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : settings.appearance;
 }
-function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); }
+function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); recipes.forEach(recipe => apiRequest('recipeUpsert', { data: recipePayload(recipe) })); }
 function saveDocuments() { localStorage.setItem('my-family-documents', JSON.stringify(documents)); }
-function saveMembers() { localStorage.setItem('my-family-members', JSON.stringify(members)); }
+function saveMembers() { localStorage.setItem('my-family-members', JSON.stringify(members)); members.forEach(member => apiRequest('memberUpsert', { data: memberPayload(member) })); }
+function applyRemoteData(data) {
+  if (data.events?.length) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
+  if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
+  if (data.recipes?.length) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => ({ ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || '' })));
+  if (data.documents?.length) documents.splice(0, documents.length, ...data.documents.map(document => ({ ...document, id: document.documentId, type: document.mimeType, size: document.sizeBytes })));
+  if (data.notifications?.length) notifications.splice(0, notifications.length, ...data.notifications.map(notification => ({ ...notification, id: notification.notificationId, read: false })));
+  if (data.settings) Object.assign(settings, { notifications: data.settings.notificationsEnabled !== false, sync: data.settings.syncEnabled !== false, eventReminders: data.settings.eventRemindersEnabled !== false, documentReminders: data.settings.documentRemindersEnabled !== false, defaultView: data.settings.defaultCalendarView || settings.defaultView, timeFormat: data.settings.timeFormat || settings.timeFormat, appearance: data.settings.appearance || settings.appearance, familyName: data.settings.familyName || settings.familyName, familyAvatar: data.settings.familyAvatar || settings.familyAvatar, pinEnabled: data.settings.pinEnabled === true });
+}
+async function connectSheets() {
+  if (!settings.sync) return;
+  const response = await apiRequest('bootstrap');
+  if (!response?.ok) return;
+  const data = response.data || {};
+  const hadLocalData = Boolean(savedEvents || savedMembers || savedRecipes || savedDocuments);
+  const hadRemoteData = Boolean(data.events?.length || data.members?.length || data.recipes?.length || data.documents?.length);
+  if (!hadRemoteData && hadLocalData) { saveEvents(); saveMembers(); saveRecipes(); }
+  applyRemoteData(data);
+  document.querySelector('.sync-status span').innerHTML = 'Sincronizado con Google Sheets<br><small>Datos locales disponibles sin conexión</small>';
+}
 function getMember(key) { return members.find(member => member.key === key) || { name: key, color: '#176b4d', initials: key.slice(0, 1).toUpperCase() }; }
 function memberDot(memberKey, extra = '') { const member = getMember(memberKey); return `<i class="member-dot ${extra}" style="background:${member.color}" title="${member.name}"></i>`; }
 function todayInputValue() { const date = new Date(); return dateKey(date); }
@@ -363,7 +395,7 @@ function renderUpcoming() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const startKey = dateKey(weekStart);
   const endKey = dateKey(weekEnd);
-  const upcoming = events.filter(event => event.date >= startKey && event.date <= endKey).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  const upcoming = events.filter(event => eventDateKey(event) >= startKey && eventDateKey(event) <= endKey).sort((a, b) => `${eventDateKey(a)}T${a.time}`.localeCompare(`${eventDateKey(b)}T${b.time}`));
   summaryPeriod.textContent = `${weekStart.getDate()}-${weekEnd.getDate()} ${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(weekEnd)}`;
   summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}"><b>${event.time}</b>${memberDot(event.member)}<div><strong>${event.name}</strong><small>${getMember(event.member).name} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
 }
@@ -385,7 +417,7 @@ function renderWeek(calendar) {
     const day = new Date(weekStart);
     day.setDate(day.getDate() + index);
     const key = dateKey(day);
-    const dayEvents = events.filter(event => event.date === key).sort((a, b) => a.time.localeCompare(b.time));
+    const dayEvents = events.filter(event => eventDateKey(event) === key).sort((a, b) => a.time.localeCompare(b.time));
     const eventMarkup = dayEvents.length ? dayEvents.map(event => `<div class="week-event ${event.done ? 'done' : ''}"><span class="week-event-time">${event.time}</span><span class="week-event-name">${event.name}</span></div>`).join('') : '<span class="week-empty">Sin eventos</span>';
     return `<div class="week-day ${key === todayKey ? 'today' : ''}"><div class="week-day-label">${new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(day).toUpperCase()}</div><div class="week-day-number">${day.getDate()}</div>${eventMarkup}</div>`;
   }).join('');
@@ -410,7 +442,7 @@ function buildCalendar() {
     const displayedDay = dayNumber <= 0 ? previousMonthDays + dayNumber : dayNumber > daysInMonth ? dayNumber - daysInMonth : dayNumber;
     const cellDate = new Date(year, month, dayNumber);
     const cellDateKey = dateKey(cellDate);
-    const dayEvents = events.filter(event => event.date === cellDateKey);
+    const dayEvents = events.filter(event => eventDateKey(event) === cellDateKey);
     const isToday = isCurrentMonth && cellDateKey === todayKey;
     const dots = dayEvents.map(event => memberDot(event.member)).join('');
     return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}">${displayedDay}<div class="dots">${dots}</div></div>`;
@@ -430,6 +462,10 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
 document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
-saveEvents(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion(); checkPinLock();
+async function startApp() {
+  await connectSheets();
+  renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion(); checkPinLock();
+}
+startApp();
 setInterval(checkPublishedVersion, 60000);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);
