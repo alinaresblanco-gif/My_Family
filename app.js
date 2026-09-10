@@ -50,7 +50,7 @@ function memberPayload(member) { return { memberId: String(member.id), familyId:
 function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
 function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); events.forEach(event => apiRequest('eventUpsert', { data: eventPayload(event) })); }
-function getActiveFilter() { return document.querySelector('.member-filter.selected').dataset.filter; }
+function getActiveFilter() { return document.querySelector('.member-filter.selected')?.dataset.filter || 'todos'; }
 function eventDateKey(event) { return String(event.date || '').slice(0, 10); }
 function todayEvents() { return events.filter(event => eventDateKey(event) === todayKey); }
 function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
@@ -118,11 +118,10 @@ function renderMembers() {
   familyGrid.querySelectorAll('.customize-member').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); openMemberModal(members.find(member => member.id === Number(button.dataset.memberId))); }));
 }
 function renderMemberFilters() {
-  document.querySelectorAll('#view-inicio .member-filter[data-filter]').forEach(button => {
-    const member = getMember(button.dataset.filter);
-    if (!member.key) return;
-    button.innerHTML = `${memberDot(member.key)} ${member.name}`;
-  });
+  const filterBar = document.querySelector('#member-filters');
+  const filterList = filterBar.querySelector('.member-filter-list');
+  filterBar.hidden = members.length === 0;
+  filterList.innerHTML = members.length ? [`<button class="member-filter selected" data-filter="todos"><span class="member-dot all">✦</span> Todos</button>`, ...members.map(member => `<button class="member-filter" data-filter="${member.key}">${memberDot(member.key)} ${member.name}</button>`)].join('') : '';
 }
 function openDocumentModal() { documentForm.reset(); documentForm.elements.uploadDate.value = todayInputValue(); document.querySelector('#document-file-name').textContent = 'Ningún archivo seleccionado'; document.querySelector('#document-form-error').textContent = ''; documentModal.classList.add('open'); documentModal.setAttribute('aria-hidden', 'false'); }
 function documentExtension(name) { return name.split('.').pop().toUpperCase().slice(0, 4); }
@@ -261,7 +260,13 @@ function openModal(id) { const event = events.find(item => item.id === id); docu
 function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${member.name}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
-document.querySelectorAll('.member-filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.member-filter.selected').classList.remove('selected'); button.classList.add('selected'); renderEvents(button.dataset.filter); }));
+document.querySelector('#member-filters').addEventListener('click', event => {
+  const button = event.target.closest('.member-filter');
+  if (!button) return;
+  document.querySelector('.member-filter.selected')?.classList.remove('selected');
+  button.classList.add('selected');
+  renderEvents(button.dataset.filter);
+});
 renderMemberFilters();
 document.querySelector('.modal-close').addEventListener('click', closeModal);
 modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
@@ -441,12 +446,11 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
   document.querySelectorAll('[data-calendar-view]').forEach(item => item.classList.toggle('active', item === button));
   buildCalendar();
 }));
-document.querySelector('.member-filter[data-filter*="ayes"]').dataset.filter = 'y' + 'ayes';
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
 async function startApp() {
   await connectSheets();
-  renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion(); checkPinLock();
+  renderMemberFilters(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion(); checkPinLock();
 }
 startApp();
 setInterval(checkPublishedVersion, 60000);
