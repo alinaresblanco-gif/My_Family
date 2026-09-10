@@ -2,13 +2,7 @@ const FALLBACK_APP_VERSION = '2026.09.09.2';
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwGPK6njz5Y831B-ABIYpYbgyTiXgylXqa4aRvmS9Kw96vW0nB_mYtA3g4yvCPnxlLn/exec';
 const FAMILY_ID = 'family-my-family';
 let currentAppVersion = null;
-const defaultEvents = [
-  { id: 1, member: 'antonio', name: 'Revisión médica', time: '08:30', place: 'Centro de salud familiar', category: '🏥 Médico', done: false },
-  { id: 2, member: 'y' + 'ayes', name: 'Clases de piano', time: '16:00', place: 'Aula 3 · Conservatorio', category: '🎵 Actividad', done: false },
-  { id: 3, member: 'ramsses', name: 'Entrenamiento', time: '19:30', place: 'Pabellón municipal', category: '⚽ Ocio', done: false },
-  { id: 4, member: 'rosa', name: 'Entregar proyecto', time: '20:00', place: 'Tarea del colegio', category: '🧾 Tareas', done: false },
-  { id: 5, member: 'antonio', name: 'Comprar fruta', time: '20:30', place: 'Lista familiar', category: '🛒 Tareas', done: true }
-];
+const defaultEvents = [];
 const savedEvents = localStorage.getItem('my-family-events');
 const events = savedEvents ? JSON.parse(savedEvents) : defaultEvents;
 const today = new Date();
@@ -22,10 +16,7 @@ const eventForm = document.querySelector('.event-form');
 const notificationsModal = document.querySelector('#notifications-modal');
 const notificationList = document.querySelector('#notification-list');
 const updateModal = document.querySelector('#update-modal');
-const defaultNotifications = [
-  { id: 1, title: 'Revisión médica', message: 'La cita de Antonio es hoy a las 08:30.', read: false },
-  { id: 2, title: 'Documento por caducar', message: 'El seguro del coche vence el 18 de octubre.', read: false }
-];
+const defaultNotifications = [];
 const savedNotifications = localStorage.getItem('my-family-notifications');
 const notifications = savedNotifications ? JSON.parse(savedNotifications) : defaultNotifications;
 const savedSettings = JSON.parse(localStorage.getItem('my-family-settings') || '{}');
@@ -42,20 +33,11 @@ const documentFile = document.querySelector('#document-file');
 const savedDocuments = localStorage.getItem('my-family-documents');
 const documents = savedDocuments ? JSON.parse(savedDocuments) : [];
 const DOCUMENT_CAPACITY_BYTES = 100 * 1024 * 1024;
-const defaultMembers = [
-  { id: 1, name: 'Antonio', role: 'Antonio', color: '#8ec68f', initials: 'A', phone: '', birthDate: '', notes: '' },
-  { id: 2, name: 'Yayes', role: 'Yayes', color: '#93c6d1', initials: 'Y', phone: '', birthDate: '', notes: '' },
-  { id: 3, name: 'Ramssés', role: 'Ramssés', color: '#e98779', initials: 'R', phone: '', birthDate: '', notes: '' },
-  { id: 4, name: 'Rosa', role: 'Rosa', color: '#f6cf68', initials: 'R', phone: '', birthDate: '', notes: '' }
-];
+const defaultMembers = [];
 const savedMembers = localStorage.getItem('my-family-members');
 const members = savedMembers ? JSON.parse(savedMembers) : defaultMembers;
 members.forEach(member => { if (!member.key) member.key = member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'); });
-const builtInRecipes = [
-  { name: 'Pasta de los viernes', category: 'Rápidos', time: '25 min', servings: '', ingredients: 'Pasta\nTomate\nQueso', steps: 'Cuece la pasta y mezcla con la salsa.', image: '', description: 'Una receta rápida para compartir en familia.' },
-  { name: 'Tarta de manzana', category: 'Postres', time: '60 min', servings: '', ingredients: 'Manzanas\nHarina\nCanela', steps: 'Prepara la masa, añade la manzana y hornea.', image: '', description: 'Un postre casero para cualquier ocasión.' },
-  { name: 'Ensalada fresca', category: 'Saludables', time: '15 min', servings: '', ingredients: 'Lechuga\nTomate\nAceite de oliva', steps: 'Lava, corta y mezcla todos los ingredientes.', image: '', description: 'Una opción ligera y llena de sabor.' }
-];
+const builtInRecipes = [];
 
 function apiRequest(action, data = {}) {
   if (!settings.sync || !SHEETS_API_URL) return Promise.resolve(null);

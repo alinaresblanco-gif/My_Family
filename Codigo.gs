@@ -98,3 +98,11 @@ function ensureFamily_(familyId) {
 }
 
 function testApi() { return handle_('bootstrap', { familyId: DEFAULT_FAMILY_ID }); }
+
+function clearDataNow() {
+  Object.keys(TABLES).forEach(function(table) {
+    var sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(TABLES[table]);
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+  });
+}
