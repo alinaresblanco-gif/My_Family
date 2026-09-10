@@ -56,10 +56,10 @@
     #view-inicio .stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
     #view-inicio .stat-item { min-width: 0; }
     #view-inicio .filter-label, #view-inicio .day-divider > span:first-child, #view-inicio #event-count { color: var(--green); font-size: 12px; }
-    #view-inicio .filter-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; overflow: visible; align-items: center; }
+    #view-inicio .filter-bar { display: grid; grid-template-columns: 1fr; gap: 10px; overflow: visible; align-items: center; }
     #view-inicio .filter-label { grid-column: 1; white-space: nowrap; }
+    #view-inicio .member-filter-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; min-width: 0; }
     #view-inicio .member-filter { justify-content: center; min-width: 0; }
-    #view-inicio .member-filter[data-filter="todos"] { grid-column: 2; }
     .empty-events { grid-column: 1 / -1; min-height: 190px; display: grid; place-items: center; align-content: center; gap: 10px; color: var(--green); text-align: center; font-size: 13px; font-weight: 700; letter-spacing: .5px; }
     .empty-events i { width: 48px; height: 48px; display: grid; place-items: center; border: 2px solid var(--green); border-radius: 50%; font-style: normal; font-size: 25px; }
     .notification-modal { max-width: 460px; }
