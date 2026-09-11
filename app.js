@@ -16,6 +16,7 @@ const nextEventButton = document.querySelector('#next-event-button');
 const nextEventModal = document.querySelector('#next-event-modal');
 const dayEventsModal = document.querySelector('#day-events-modal');
 const dayEventsList = document.querySelector('#day-events-list');
+let remoteSyncInProgress = false;
 const eventForm = document.querySelector('.event-form');
 const notificationsModal = document.querySelector('#notifications-modal');
 const notificationList = document.querySelector('#notification-list');
@@ -53,7 +54,7 @@ function eventPayload(event) { return { eventId: String(event.id), familyId: FAM
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
-function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); events.forEach(event => apiRequest('eventUpsert', { data: eventPayload(event) })); }
+function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); return Promise.all(events.map(event => apiRequest('eventUpsert', { data: eventPayload(event) }))); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected')?.dataset.filter || 'todos'; }
 function eventDateKey(event) { return String(event.date || '').slice(0, 10); }
 function todayEvents() { return events.filter(event => eventDateKey(event) === todayKey); }
@@ -85,7 +86,7 @@ function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringif
 function saveDocuments() { localStorage.setItem('my-family-documents', JSON.stringify(documents)); }
 function saveMembers() { localStorage.setItem('my-family-members', JSON.stringify(members)); members.forEach(member => apiRequest('memberUpsert', { data: memberPayload(member) })); }
 function applyRemoteData(data) {
-  if (data.events?.length) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
+  if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
   if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
   if (data.recipes?.length) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => ({ ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || '' })));
   if (data.documents?.length) documents.splice(0, documents.length, ...data.documents.map(document => ({ ...document, id: document.documentId, type: document.mimeType, size: document.sizeBytes })));
@@ -102,6 +103,21 @@ async function connectSheets() {
   if (!hadRemoteData && hadLocalData) { saveEvents(); saveMembers(); saveRecipes(); }
   applyRemoteData(data);
   document.querySelector('.sync-status span').innerHTML = 'Sincronizado con Google Sheets<br><small>Datos locales disponibles sin conexión</small>';
+}
+async function refreshFromSheets() {
+  if (!settings.sync || document.visibilityState === 'hidden' || remoteSyncInProgress) return;
+  remoteSyncInProgress = true;
+  try {
+    const response = await apiRequest('bootstrap');
+    if (!response?.ok) return;
+    applyRemoteData(response.data || {});
+    renderMemberFilters();
+    renderEvents(getActiveFilter());
+    renderMembers();
+    buildCalendar();
+  } finally {
+    remoteSyncInProgress = false;
+  }
 }
 function getMember(key) { return members.find(member => member.key === key) || { name: key, color: '#176b4d', initials: key.slice(0, 1).toUpperCase() }; }
 function memberDot(memberKey, extra = '') { const member = getMember(memberKey); return `<i class="member-dot ${extra}" style="background:${member.color}" title="${member.name}"></i>`; }
@@ -256,7 +272,7 @@ function renderEvents(filter = 'todos') {
   grid.querySelectorAll('.sticky').forEach(card => card.addEventListener('click', () => openModal(Number(card.dataset.id))));
   grid.querySelectorAll('[data-done]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); toggleDone(Number(button.dataset.done)); }));
 }
-function toggleDone(id) { const event = events.find(item => item.id === id); event.done = !event.done; saveEvents(); renderEvents(getActiveFilter()); }
+async function toggleDone(id) { const event = events.find(item => item.id === id); event.done = !event.done; await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); }
 function showForm(event) {
   modal.querySelector('.modal-detail-view').hidden = true;
   eventForm.hidden = false;
@@ -311,13 +327,13 @@ nextEventButton.addEventListener('click', openNextEventModal);
 document.querySelector('#day-events-close').addEventListener('click', closeDayEventsModal);
 document.querySelector('#next-event-modal-dismiss').addEventListener('click', closeNextEventModal);
 nextEventModal.addEventListener('click', event => { if (event.target === nextEventModal) closeNextEventModal(); });
-eventForm.addEventListener('submit', event => {
+eventForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!eventForm.checkValidity()) { document.querySelector('.form-error').textContent = 'Completa los campos obligatorios.'; return; }
   const data = Object.fromEntries(new FormData(eventForm));
   const existing = events.find(item => item.id === Number(modal.dataset.id));
   if (existing) Object.assign(existing, data); else events.push({ ...data, id: Date.now(), done: false });
-  saveEvents(); renderEvents(getActiveFilter()); closeModal();
+  await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); closeModal();
 });
 document.querySelector('#add-recipe').addEventListener('click', openRecipeModal);
 document.querySelectorAll('.recipe-modal-close').forEach(button => button.addEventListener('click', closeRecipeModal));
@@ -503,4 +519,7 @@ async function startApp() {
 }
 startApp();
 setInterval(checkPublishedVersion, 60000);
+setInterval(refreshFromSheets, 2000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshFromSheets(); });
+window.addEventListener('focus', refreshFromSheets);
 setTimeout(() => window.location.reload(), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now() + 1000);
