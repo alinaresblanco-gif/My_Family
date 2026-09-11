@@ -43,8 +43,8 @@
     #view-agenda .cal-day .dots { left: 5px; right: 5px; bottom: 6px; max-width: calc(100% - 10px); display: flex; flex-wrap: wrap; gap: 4px; row-gap: 5px; }
     #view-agenda .cal-day { cursor: pointer; }
     #view-agenda .cal-day-events { display: grid; width: calc(100% + 24px); gap: 3px; margin: 7px -12px 0; overflow: hidden; }
-    #view-agenda .cal-event-pill { display: block; width: 100%; min-width: 0; overflow: hidden; padding: 2px 5px; border-radius: 4px; background: #8b8bd2; color: #fff; font-size: 10px; line-height: 1.1; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-    #view-agenda .cal-event-pill.done { background: #4da26f; }
+    #view-agenda .cal-event-pill { display: block; width: 100%; min-width: 0; overflow: hidden; padding: 2px 5px; border-radius: 4px; background: var(--member-color, var(--green)); color: #fff; font-size: 10px; line-height: 1.1; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+    #view-agenda .cal-event-pill.done { opacity: .68; }
     #view-agenda .cal-event-more { color: var(--muted); font-size: 10px; font-weight: 700; }
     .day-events-modal { width: min(620px, calc(100% - 32px)); }
     .day-events-modal h2 { margin: 5px 0 18px; }
@@ -64,10 +64,12 @@
     .week-day-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .7px; }
     .week-day-number { color: var(--deep); font: 800 20px Manrope; margin-top: 7px; }
     .week-day > .week-event, .week-day > .week-empty { grid-column: 2; }
-    .week-event { display: inline-grid; gap: 3px; padding: 8px; margin: 0 7px 7px 0; border-left: 3px solid var(--green); border-radius: 4px; background: #e8f1eb; font-size: 11px; vertical-align: top; }
+    .week-event { display: inline-grid; gap: 3px; width: calc(100% - 7px); padding: 8px; margin: 0 7px 7px 0; border: 0; border-left: 4px solid var(--member-color, var(--green)); border-radius: 4px; background: color-mix(in srgb, var(--member-color, var(--green)) 16%, white); color: var(--ink); font-size: 11px; text-align: left; vertical-align: top; }
+    .week-event:hover, .week-event:focus-visible { outline: 2px solid var(--member-color, var(--green)); outline-offset: 1px; }
     .week-event.done { opacity: .55; }
-    .week-event-time { color: var(--green); font-weight: 700; }
+    .week-event-time { color: var(--member-color, var(--green)); font-weight: 700; }
     .week-event-name { font-weight: 700; line-height: 1.25; }
+    .week-event-member { color: var(--muted); font-size: 10px; }
     .week-empty { color: var(--muted); font-size: 11px; }
     .calendar-toolbar h2 .week-number { display: block; color: var(--green); font-size: 12px; margin-top: 4px; letter-spacing: .4px; }
     #view-inicio .stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
@@ -362,7 +364,7 @@
       </form>
     </div>
   </div>
-  <script src="app.js?v=2026.09.11.10"></script>
+  <script src="app.js?v=2026.09.11.12"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {

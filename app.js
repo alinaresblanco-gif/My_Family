@@ -464,9 +464,14 @@ function renderWeek(calendar) {
     day.setDate(day.getDate() + index);
     const key = dateKey(day);
     const dayEvents = events.filter(event => eventDateKey(event) === key).sort((a, b) => a.time.localeCompare(b.time));
-    const eventMarkup = dayEvents.length ? dayEvents.map(event => `<div class="week-event ${event.done ? 'done' : ''}"><span class="week-event-time">${event.time}</span><span class="week-event-name">${event.name}</span></div>`).join('') : '<span class="week-empty">Sin eventos</span>';
+    const eventMarkup = dayEvents.length ? dayEvents.map(event => `<button class="week-event ${event.done ? 'done' : ''}" type="button" data-week-event-id="${event.id}" style="--member-color:${getMember(event.member).color}" title="${event.name}"><span class="week-event-time">${event.time}</span><span class="week-event-name">${event.name}</span><small class="week-event-member">${getMember(event.member).name}</small></button>`).join('') : '<span class="week-empty">Sin eventos</span>';
     return `<div class="week-day ${key === todayKey ? 'today' : ''}"><div class="week-day-label">${new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(day).toUpperCase()}</div><div class="week-day-number">${day.getDate()}</div>${eventMarkup}</div>`;
   }).join('');
+  calendar.querySelectorAll('[data-week-event-id]').forEach(item => {
+    const open = () => openModal(Number(item.dataset.weekEventId));
+    item.addEventListener('click', event => { event.stopPropagation(); open(); });
+    item.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); open(); } });
+  });
 }
 function buildCalendar() {
   const calendar = document.querySelector('#calendar');
@@ -490,7 +495,7 @@ function buildCalendar() {
     const cellDateKey = dateKey(cellDate);
     const dayEvents = events.filter(event => eventDateKey(event) === cellDateKey);
     const isToday = isCurrentMonth && cellDateKey === todayKey;
-    const visibleEvents = dayEvents.slice(0, 3).map(event => `<span class="cal-event-pill ${event.done ? 'done' : ''}" title="${event.name}">${event.time || ''} ${event.name}</span>`).join('');
+    const visibleEvents = dayEvents.slice(0, 3).map(event => `<span class="cal-event-pill ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" title="${event.name}">${event.time || ''} ${event.name}</span>`).join('');
     const moreEvents = dayEvents.length > 3 ? `<span class="cal-event-more">+${dayEvents.length - 3} más</span>` : '';
     return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}" data-calendar-date="${cellDateKey}" tabindex="0" role="button"><span class="cal-day-number">${displayedDay}</span><div class="cal-day-events">${visibleEvents}${moreEvents}</div></div>`;
   }).join('');
