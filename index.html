@@ -56,6 +56,13 @@
     #view-inicio .stats-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
     #view-inicio .stat-item { min-width: 0; }
     #view-inicio .filter-label, #view-inicio .day-divider > span:first-child, #view-inicio #event-count { color: var(--green); font-size: 12px; }
+    #next-event-button { display: flex; align-items: center; gap: 11px; padding: 0; color: inherit; text-align: left; background: transparent; }
+    #next-event-button:disabled { cursor: default; opacity: .55; }
+    #next-event-button .stat-icon { flex-shrink: 0; }
+    .next-event-details { display: grid; gap: 10px; margin: 20px 0 0; }
+    .next-event-detail { display: grid; gap: 3px; }
+    .next-event-detail dt { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+    .next-event-detail dd { margin: 0; color: var(--ink); font-size: 14px; }
     #view-inicio .filter-bar { display: grid; grid-template-columns: 1fr; gap: 10px; overflow: visible; align-items: center; }
     #view-inicio .filter-label { grid-column: 1; white-space: nowrap; }
     #view-inicio .member-filter-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; min-width: 0; }
@@ -186,7 +193,7 @@
 
       <section id="view-inicio" class="view active-view">
         <div class="page-heading"><div><p class="section-kicker" id="current-date-label">LUNES, 7 DE SEPTIEMBRE DE 2026</p><h1>Los Post-it del día</h1><p class="muted">Todo lo importate, en un sólo vistazo familia</p></div><button class="primary-button" id="add-event"><span>+</span> Añadir Post-it</button></div>
-        <div class="stats-row"><div class="stat-item"><span class="stat-icon green">◷</span><div><strong id="pending-count">4</strong><small>pendientes hoy</small></div></div><div class="stat-item"><span class="stat-icon yellow">✓</span><div><strong id="completed-count">1</strong><small>completados</small></div></div><div class="stat-item"><span class="stat-icon orange">!</span><div><strong>1</strong><small>próximo ahora</small></div></div></div>
+        <div class="stats-row"><div class="stat-item"><span class="stat-icon green">◷</span><div><strong id="pending-count">4</strong><small>pendientes hoy</small></div></div><div class="stat-item"><span class="stat-icon yellow">✓</span><div><strong id="completed-count">1</strong><small>completados</small></div></div><div class="stat-item"><button id="next-event-button" type="button" disabled><span class="stat-icon orange">!</span><div><strong id="next-event-count">0</strong><small>próximo ahora</small></div></button></div></div>
         <div class="filter-bar" id="member-filters"><span class="filter-label">Ver Post-it de hoy:</span><div class="member-filter-list"></div></div>
         <div class="day-divider"><span>HOY</span><span class="line"></span><small id="event-count">5 eventos</small></div>
         <div class="sticky-grid" id="sticky-grid"></div>
@@ -202,6 +209,20 @@
 
       <section id="view-ajustes" class="view"><div class="page-heading"><div><p class="section-kicker">PERSONALIZA LA EXPERIENCIA</p><h1>Ajustes</h1><p class="muted">Preferencias de vuestra agenda familiar.</p></div></div><div class="settings-list"><div class="settings-section-title">FAMILIA</div><div class="settings-control"><div><strong>Perfil familiar</strong><small id="family-profile-status">Nombre y avatar de la familia</small></div><button class="secondary-button" id="open-family-profile">Editar</button></div><div class="settings-section-title">AGENDA Y AVISOS</div><div class="settings-control"><div><strong>Notificaciones</strong><small id="notifications-setting-status">Recibe avisos de eventos y documentos</small></div><label class="toggle"><input id="notifications-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Recordatorios de eventos</strong><small>Avísame antes de los Post-it importantes</small></div><label class="toggle"><input id="event-reminders-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Recordatorios de documentos</strong><small>Avisa cuando un documento vaya a vencer</small></div><label class="toggle"><input id="document-reminders-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Sincronización</strong><small id="sync-setting-status">Preparado para conectar con Google Sheets</small></div><label class="toggle"><input id="sync-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Vista inicial de Agenda</strong><small>Elige cómo abrir el calendario</small></div><select id="default-calendar-view"><option value="month">Mes</option><option value="week">Semana</option></select></div><div class="settings-control"><div><strong>Formato de hora</strong><small>Preferencia para eventos</small></div><select id="time-format"><option value="24">24 horas</option><option value="12">12 horas</option></select></div><div class="settings-section-title">APARIENCIA Y PRIVACIDAD</div><div class="settings-control"><div><strong>Apariencia</strong><small>Claro, oscuro o automático</small></div><select id="appearance-setting"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="auto">Automático</option></select></div><div class="settings-control"><div><strong>Privacidad</strong><small id="pin-setting-status">Protege la app con un PIN local</small></div><label class="toggle"><input id="pin-setting" type="checkbox"><i></i></label></div><div class="settings-section-title">DATOS Y ALMACENAMIENTO</div><div class="settings-control"><div><strong>Copias de seguridad</strong><small id="storage-setting-status">Exporta o importa tus datos locales</small></div><div class="settings-actions"><button id="export-data">Exportar</button><button id="import-data">Importar</button><input id="import-data-file" type="file" accept="application/json" hidden></div></div><div class="settings-control"><div><strong>Información de la app</strong><small id="app-info-status">My Family · Datos locales</small></div><span id="app-version-label">v2026.09.09.2</span></div></div></section>
     </main>
+  </div>
+  <div class="modal-backdrop" id="next-event-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="next-event-modal-title">
+      <div class="modal-detail-view">
+        <div class="modal-top"><span class="modal-category" id="next-event-category"></span><span class="modal-member" id="next-event-member"></span></div>
+        <h2 id="next-event-modal-title">Próximo Post-it</h2>
+        <dl class="next-event-details">
+          <div class="next-event-detail"><dt>Fecha y hora</dt><dd id="next-event-date-time"></dd></div>
+          <div class="next-event-detail"><dt>Lugar</dt><dd id="next-event-place"></dd></div>
+          <div class="next-event-detail" id="next-event-description-row"><dt>Descripción</dt><dd id="next-event-description"></dd></div>
+        </dl>
+        <div class="modal-actions"><button class="secondary-button" id="next-event-modal-dismiss" type="button">Cerrar</button></div>
+      </div>
+    </div>
   </div>
   <div class="modal-backdrop" id="event-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -311,7 +332,7 @@
       </form>
     </div>
   </div>
-  <script src="app.js?v=2026.09.10.3"></script>
+  <script src="app.js?v=2026.09.11.3"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {

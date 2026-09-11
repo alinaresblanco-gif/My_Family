@@ -12,6 +12,8 @@ const memberNames = { antonio: 'Antonio', yayes: 'Yayes', ramsses: 'Ramssés', r
 const memberColorClasses = { antonio: 'papa', yayes: 'mama', ramsses: 'diego', rosa: 'lucia' };
 const grid = document.querySelector('#sticky-grid');
 const modal = document.querySelector('#event-modal');
+const nextEventButton = document.querySelector('#next-event-button');
+const nextEventModal = document.querySelector('#next-event-modal');
 const eventForm = document.querySelector('.event-form');
 const notificationsModal = document.querySelector('#notifications-modal');
 const notificationList = document.querySelector('#notification-list');
@@ -53,6 +55,9 @@ function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(
 function getActiveFilter() { return document.querySelector('.member-filter.selected')?.dataset.filter || 'todos'; }
 function eventDateKey(event) { return String(event.date || '').slice(0, 10); }
 function todayEvents() { return events.filter(event => eventDateKey(event) === todayKey); }
+function getNextEvent(eventsForToday = todayEvents()) {
+  return eventsForToday.filter(event => !event.done).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))[0] || null;
+}
 function formatCurrentDate() { return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(today).toUpperCase(); }
 function saveNotifications() { localStorage.setItem('my-family-notifications', JSON.stringify(notifications)); }
 function saveSettings() { localStorage.setItem('my-family-settings', JSON.stringify(settings)); apiRequest('settingsUpdate', { data: settingsPayload() }); }
@@ -237,11 +242,14 @@ async function enableDeviceNotifications() {
 
 function renderEvents(filter = 'todos') {
   const currentEvents = todayEvents();
+  const nextEvent = currentEvents.filter(event => !event.done).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))[0] || null;
   const visible = currentEvents.filter(event => filter === 'todos' || event.member === filter).sort((a, b) => a.time.localeCompare(b.time));
   grid.innerHTML = visible.length ? visible.map(event => `<article class="sticky ${memberColorClasses[event.member]} ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" data-id="${event.id}"><span class="sticky-time">${event.time}</span><h3>${event.name}</h3><p>${event.place}</p><div class="sticky-foot"><span class="category">${event.category}</span><button class="done-button" data-done="${event.id}">${event.done ? '✓ Hecho' : 'Marcar hecho'}</button></div></article>`).join('') : `<div class="empty-events"><i>◷</i><span>PARA ${formatCurrentDate()} NO EXISTEN EVENTOS NI ACTIVIDADES MARCADAS EN LA AGENDA.</span></div>`;
   document.querySelector('#pending-count').textContent = currentEvents.filter(event => !event.done).length;
   document.querySelector('#nav-pending-count').textContent = currentEvents.filter(event => !event.done).length;
   document.querySelector('#completed-count').textContent = currentEvents.filter(event => event.done).length;
+  document.querySelector('#next-event-count').textContent = nextEvent ? '1' : '0';
+  nextEventButton.disabled = !nextEvent;
   document.querySelector('#event-count').textContent = `${currentEvents.length} eventos`;
   grid.querySelectorAll('.sticky').forEach(card => card.addEventListener('click', () => openModal(Number(card.dataset.id))));
   grid.querySelectorAll('[data-done]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); toggleDone(Number(button.dataset.done)); }));
@@ -260,6 +268,21 @@ function openModal(id) { const event = events.find(item => item.id === id); docu
 function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${member.name}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+function openNextEventModal() {
+  const event = getNextEvent();
+  if (!event) return;
+  const member = getMember(event.member);
+  const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name;
+  document.querySelector('#next-event-category').textContent = event.category || 'Post-it';
+  document.querySelector('#next-event-member').innerHTML = `${memberDot(event.member)} ${memberName}`;
+  document.querySelector('#next-event-modal-title').textContent = event.name;
+  document.querySelector('#next-event-date-time').textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${event.date}T12:00:00`))} · ${event.time || 'Sin hora'}`;
+  document.querySelector('#next-event-place').textContent = event.place || 'Sin lugar indicado';
+  document.querySelector('#next-event-description').textContent = event.description || 'Sin descripción';
+  nextEventModal.classList.add('open');
+  nextEventModal.setAttribute('aria-hidden', 'false');
+}
+function closeNextEventModal() { nextEventModal.classList.remove('open'); nextEventModal.setAttribute('aria-hidden', 'true'); }
 document.querySelector('#member-filters').addEventListener('click', event => {
   const button = event.target.closest('.member-filter');
   if (!button) return;
@@ -273,6 +296,9 @@ modal.addEventListener('click', event => { if (event.target === modal) closeModa
 document.querySelector('.modal-done').addEventListener('click', () => { toggleDone(Number(modal.dataset.id)); closeModal(); });
 document.querySelector('.modal-edit').addEventListener('click', () => showForm(events.find(item => item.id === Number(modal.dataset.id))));
 document.querySelector('.modal-cancel').addEventListener('click', closeModal);
+nextEventButton.addEventListener('click', openNextEventModal);
+document.querySelector('#next-event-modal-dismiss').addEventListener('click', closeNextEventModal);
+nextEventModal.addEventListener('click', event => { if (event.target === nextEventModal) closeNextEventModal(); });
 eventForm.addEventListener('submit', event => {
   event.preventDefault();
   if (!eventForm.checkValidity()) { document.querySelector('.form-error').textContent = 'Completa los campos obligatorios.'; return; }
@@ -363,7 +389,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
