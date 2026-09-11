@@ -41,6 +41,23 @@
     #view-agenda .summary-head span { color: var(--green); font-size: 12px; }
     #view-agenda .cal-day { overflow: hidden; }
     #view-agenda .cal-day .dots { left: 5px; right: 5px; bottom: 6px; max-width: calc(100% - 10px); display: flex; flex-wrap: wrap; gap: 4px; row-gap: 5px; }
+    #view-agenda .cal-day { cursor: pointer; }
+    #view-agenda .cal-day-events { display: grid; gap: 3px; margin-top: 7px; overflow: hidden; }
+    #view-agenda .cal-event-pill { display: block; min-width: 0; overflow: hidden; padding: 3px 5px; border-radius: 4px; background: #8b8bd2; color: #fff; font-size: 10px; line-height: 1.15; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+    #view-agenda .cal-event-pill.done { background: #4da26f; }
+    #view-agenda .cal-event-more { color: var(--muted); font-size: 10px; font-weight: 700; }
+    .day-events-modal { width: min(620px, calc(100% - 32px)); }
+    .day-events-modal h2 { margin: 5px 0 18px; }
+    .day-events-list { display: grid; max-height: min(60vh, 520px); overflow-y: auto; border-top: 1px solid var(--line); }
+    .day-event-row { display: grid; grid-template-columns: 62px 1fr; min-height: 48px; border-bottom: 1px solid var(--line); }
+    .day-event-time { padding: 13px 10px 10px 0; color: var(--muted); font-size: 11px; font-weight: 700; text-align: right; }
+    .day-event-slot { min-width: 0; padding: 7px 0 7px 12px; border-left: 1px solid var(--line); }
+    .day-event-button { display: grid; width: 100%; gap: 3px; padding: 8px 10px; border-left: 4px solid var(--green); border-radius: 5px; background: #e8f1eb; color: var(--ink); text-align: left; }
+    .day-event-button:hover, .day-event-button:focus-visible { background: #d8e9dd; outline: 2px solid var(--green); outline-offset: 1px; }
+    .day-event-button.done { opacity: .6; }
+    .day-event-button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .day-event-button small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .day-events-empty { padding: 28px 0; color: var(--muted); font-size: 13px; text-align: center; }
     .calendar.week-view { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line); }
     .week-day { min-height: 84px; padding: 12px 14px; display: grid; grid-template-columns: 110px 1fr; align-items: start; column-gap: 18px; background: #fff; }
     .week-day.today { background: #edf6ef; }
@@ -213,6 +230,16 @@
       <section id="view-ajustes" class="view"><div class="page-heading"><div><p class="section-kicker">PERSONALIZA LA EXPERIENCIA</p><h1>Ajustes</h1><p class="muted">Preferencias de vuestra agenda familiar.</p></div></div><div class="settings-list"><div class="settings-section-title">FAMILIA</div><div class="settings-control"><div><strong>Perfil familiar</strong><small id="family-profile-status">Nombre y avatar de la familia</small></div><button class="secondary-button" id="open-family-profile">Editar</button></div><div class="settings-section-title">AGENDA Y AVISOS</div><div class="settings-control"><div><strong>Notificaciones</strong><small id="notifications-setting-status">Recibe avisos de eventos y documentos</small></div><label class="toggle"><input id="notifications-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Recordatorios de eventos</strong><small>Avísame antes de los Post-it importantes</small></div><label class="toggle"><input id="event-reminders-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Recordatorios de documentos</strong><small>Avisa cuando un documento vaya a vencer</small></div><label class="toggle"><input id="document-reminders-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Sincronización</strong><small id="sync-setting-status">Preparado para conectar con Google Sheets</small></div><label class="toggle"><input id="sync-setting" type="checkbox" checked><i></i></label></div><div class="settings-control"><div><strong>Vista inicial de Agenda</strong><small>Elige cómo abrir el calendario</small></div><select id="default-calendar-view"><option value="month">Mes</option><option value="week">Semana</option></select></div><div class="settings-control"><div><strong>Formato de hora</strong><small>Preferencia para eventos</small></div><select id="time-format"><option value="24">24 horas</option><option value="12">12 horas</option></select></div><div class="settings-section-title">APARIENCIA Y PRIVACIDAD</div><div class="settings-control"><div><strong>Apariencia</strong><small>Claro, oscuro o automático</small></div><select id="appearance-setting"><option value="light">Claro</option><option value="dark">Oscuro</option><option value="auto">Automático</option></select></div><div class="settings-control"><div><strong>Privacidad</strong><small id="pin-setting-status">Protege la app con un PIN local</small></div><label class="toggle"><input id="pin-setting" type="checkbox"><i></i></label></div><div class="settings-section-title">DATOS Y ALMACENAMIENTO</div><div class="settings-control"><div><strong>Copias de seguridad</strong><small id="storage-setting-status">Exporta o importa tus datos locales</small></div><div class="settings-actions"><button id="export-data">Exportar</button><button id="import-data">Importar</button><input id="import-data-file" type="file" accept="application/json" hidden></div></div><div class="settings-control"><div><strong>Información de la app</strong><small id="app-info-status">My Family · Datos locales</small></div><span id="app-version-label">v2026.09.09.2</span></div></div></section>
     </main>
   </div>
+  <div class="modal-backdrop" id="day-events-modal" aria-hidden="true">
+    <div class="modal day-events-modal" role="dialog" aria-modal="true" aria-labelledby="day-events-title">
+      <div class="modal-detail-view">
+        <p class="section-kicker">AGENDA DEL DÍA</p>
+        <h2 id="day-events-title"></h2>
+        <div class="day-events-list" id="day-events-list"></div>
+        <div class="modal-actions"><button class="secondary-button" id="day-events-close" type="button">Cerrar</button></div>
+      </div>
+    </div>
+  </div>
   <div class="modal-backdrop" id="next-event-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="next-event-modal-title">
       <div class="modal-detail-view">
@@ -335,7 +362,7 @@
       </form>
     </div>
   </div>
-  <script src="app.js?v=2026.09.11.4"></script>
+  <script src="app.js?v=2026.09.11.6"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {

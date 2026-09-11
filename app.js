@@ -14,6 +14,8 @@ const grid = document.querySelector('#sticky-grid');
 const modal = document.querySelector('#event-modal');
 const nextEventButton = document.querySelector('#next-event-button');
 const nextEventModal = document.querySelector('#next-event-modal');
+const dayEventsModal = document.querySelector('#day-events-modal');
+const dayEventsList = document.querySelector('#day-events-list');
 const eventForm = document.querySelector('.event-form');
 const notificationsModal = document.querySelector('#notifications-modal');
 const notificationList = document.querySelector('#notification-list');
@@ -265,9 +267,19 @@ function showForm(event) {
   if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; }); else eventForm.elements.date.value = todayKey;
 }
 function openModal(id) { const event = events.find(item => item.id === id); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `<i class="member-dot ${memberColorClasses[event.member]}\"></i> ${memberNames[event.member]}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
-function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${member.name}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); const eventDate = new Date(`${event.date}T12:00:00`); const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name; document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${memberName}`; document.querySelectorAll('.modal-detail')[0].textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(eventDate)} · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+function openDayEventsModal(selectedDateKey) {
+  const date = new Date(`${selectedDateKey}T12:00:00`);
+  const dayEvents = events.filter(event => eventDateKey(event) === selectedDateKey).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+  document.querySelector('#day-events-title').textContent = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+  dayEventsList.innerHTML = Array.from({ length: 24 }, (_, hour) => { const hourKey = `${String(hour).padStart(2, '0')}:`; const hourEvents = dayEvents.filter(event => String(event.time || '').startsWith(hourKey)); const eventMarkup = hourEvents.map(event => `<button class="day-event-button ${event.done ? 'done' : ''}" type="button" data-day-event-id="${event.id}"><strong>${event.name}</strong><small>${event.time || '--:--'} · ${getMember(event.member).name} · ${event.place || 'Sin lugar indicado'}</small></button>`).join(''); return `<div class="day-event-row"><span class="day-event-time">${String(hour).padStart(2, '0')}:00</span><div class="day-event-slot">${eventMarkup}</div></div>`; }).join('');
+  dayEventsList.querySelectorAll('[data-day-event-id]').forEach(button => button.addEventListener('click', () => { closeDayEventsModal(); openModal(Number(button.dataset.dayEventId)); }));
+  dayEventsModal.classList.add('open');
+  dayEventsModal.setAttribute('aria-hidden', 'false');
+}
+function closeDayEventsModal() { dayEventsModal.classList.remove('open'); dayEventsModal.setAttribute('aria-hidden', 'true'); }
 function openNextEventModal(event = getNextEvent()) {
   if (!event) return;
   const member = getMember(event.member);
@@ -388,7 +400,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeDayEventsModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
@@ -461,9 +473,15 @@ function buildCalendar() {
     const cellDateKey = dateKey(cellDate);
     const dayEvents = events.filter(event => eventDateKey(event) === cellDateKey);
     const isToday = isCurrentMonth && cellDateKey === todayKey;
-    const dots = dayEvents.map(event => memberDot(event.member)).join('');
-    return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}">${displayedDay}<div class="dots">${dots}</div></div>`;
+    const visibleEvents = dayEvents.slice(0, 3).map(event => `<span class="cal-event-pill ${event.done ? 'done' : ''}" title="${event.name}">${event.time || ''} ${event.name}</span>`).join('');
+    const moreEvents = dayEvents.length > 3 ? `<span class="cal-event-more">+${dayEvents.length - 3} más</span>` : '';
+    return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}" data-calendar-date="${cellDateKey}" tabindex="0" role="button"><span class="cal-day-number">${displayedDay}</span><div class="cal-day-events">${visibleEvents}${moreEvents}</div></div>`;
   }).join('');
+  calendar.querySelectorAll('[data-calendar-date]').forEach(day => {
+    const open = () => openDayEventsModal(day.dataset.calendarDate);
+    day.addEventListener('click', open);
+    day.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+  });
 }
 document.querySelectorAll('[data-view]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const view = link.dataset.view; document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); document.querySelector(`#view-${view}`).classList.add('active-view'); document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); if (view === 'agenda') { calendarMode = settings.defaultView; calendarDate = new Date(today); document.querySelectorAll('[data-calendar-view]').forEach(item => item.classList.toggle('active', item.dataset.calendarView === calendarMode)); buildCalendar(); } document.querySelector('.sidebar').classList.remove('open'); }));
 document.querySelectorAll('#add-event, #add-event-agenda').forEach(button => button.addEventListener('click', openCreateModal));
