@@ -42,8 +42,8 @@
     #view-agenda .cal-day { overflow: hidden; }
     #view-agenda .cal-day .dots { left: 5px; right: 5px; bottom: 6px; max-width: calc(100% - 10px); display: flex; flex-wrap: wrap; gap: 4px; row-gap: 5px; }
     #view-agenda .cal-day { cursor: pointer; }
-    #view-agenda .cal-day-events { display: grid; gap: 3px; margin-top: 7px; overflow: hidden; }
-    #view-agenda .cal-event-pill { display: block; min-width: 0; overflow: hidden; padding: 3px 5px; border-radius: 4px; background: #8b8bd2; color: #fff; font-size: 10px; line-height: 1.15; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+    #view-agenda .cal-day-events { display: grid; width: calc(100% + 24px); gap: 3px; margin: 7px -12px 0; overflow: hidden; }
+    #view-agenda .cal-event-pill { display: block; width: 100%; min-width: 0; overflow: hidden; padding: 2px 5px; border-radius: 4px; background: #8b8bd2; color: #fff; font-size: 10px; line-height: 1.1; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
     #view-agenda .cal-event-pill.done { background: #4da26f; }
     #view-agenda .cal-event-more { color: var(--muted); font-size: 10px; font-weight: 700; }
     .day-events-modal { width: min(620px, calc(100% - 32px)); }
