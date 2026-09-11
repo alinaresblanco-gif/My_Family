@@ -268,8 +268,7 @@ function openModal(id) { const event = events.find(item => item.id === id); docu
 function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${member.name}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
-function openNextEventModal() {
-  const event = getNextEvent();
+function openNextEventModal(event = getNextEvent()) {
   if (!event) return;
   const member = getMember(event.member);
   const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name;
@@ -410,7 +409,12 @@ function renderUpcoming() {
   const endKey = dateKey(weekEnd);
   const upcoming = events.filter(event => eventDateKey(event) >= startKey && eventDateKey(event) <= endKey).sort((a, b) => `${eventDateKey(a)}T${a.time}`.localeCompare(`${eventDateKey(b)}T${b.time}`));
   summaryPeriod.textContent = `${weekStart.getDate()}-${weekEnd.getDate()} ${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(weekEnd)}`;
-  summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}"><b>${event.time}</b>${memberDot(event.member)}<div><strong>${event.name}</strong><small>${getMember(event.member).name} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
+  summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}" data-upcoming-event-id="${event.id}" tabindex="0" role="button"><b>${event.time}</b>${memberDot(event.member)}<div><strong>${event.name}</strong><small>${getMember(event.member).name} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
+  summary.querySelectorAll('[data-upcoming-event-id]').forEach(item => {
+    const open = () => openNextEventModal(events.find(event => String(event.id) === item.dataset.upcomingEventId));
+    item.addEventListener('click', open);
+    item.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+  });
 }
 function getWeekNumber(date) {
   const target = new Date(date);
