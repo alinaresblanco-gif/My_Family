@@ -308,6 +308,7 @@ document.querySelector('.modal-done').addEventListener('click', () => { toggleDo
 document.querySelector('.modal-edit').addEventListener('click', () => showForm(events.find(item => item.id === Number(modal.dataset.id))));
 document.querySelector('.modal-cancel').addEventListener('click', closeModal);
 nextEventButton.addEventListener('click', openNextEventModal);
+document.querySelector('#day-events-close').addEventListener('click', closeDayEventsModal);
 document.querySelector('#next-event-modal-dismiss').addEventListener('click', closeNextEventModal);
 nextEventModal.addEventListener('click', event => { if (event.target === nextEventModal) closeNextEventModal(); });
 eventForm.addEventListener('submit', event => {
