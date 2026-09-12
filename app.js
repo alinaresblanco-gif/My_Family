@@ -112,6 +112,7 @@ async function refreshFromSheets() {
     if (!response?.ok) return;
     applyRemoteData(response.data || {});
     renderMemberFilters();
+    renderEventMemberOptions(eventForm.elements.member.value);
     renderEvents(getActiveFilter());
     renderMembers();
     buildCalendar();
@@ -121,6 +122,13 @@ async function refreshFromSheets() {
 }
 function getMember(key) { return members.find(member => member.key === key) || { name: key, color: '#176b4d', initials: key.slice(0, 1).toUpperCase() }; }
 function memberDot(memberKey, extra = '') { const member = getMember(memberKey); return `<i class="member-dot ${extra}" style="background:${member.color}" title="${member.name}"></i>`; }
+function renderEventMemberOptions(selectedKey = '') {
+  const select = document.querySelector('#event-member-select');
+  if (!select) return;
+  select.innerHTML = members.length ? members.map(member => `<option value="${member.key}">${member.name}</option>`).join('') : '<option value="">No hay miembros disponibles</option>';
+  select.disabled = members.length === 0;
+  if (selectedKey && members.some(member => member.key === selectedKey)) select.value = selectedKey;
+}
 function todayInputValue() { const date = new Date(); return dateKey(date); }
 function closeDocumentModal() { documentModal.classList.remove('open'); documentModal.setAttribute('aria-hidden', 'true'); }
 const memberModal = document.querySelector('#member-modal');
@@ -139,6 +147,7 @@ function renderMembers() {
   const familyGrid = document.querySelector('#family-grid');
   familyGrid.innerHTML = members.map(member => `<article class="person-card" style="--member-color:${member.color}" data-member-id="${member.id}"><div class="person-avatar">${member.initials || member.name.slice(0, 1).toUpperCase()}</div><h2>${member.name}</h2><span>${member.role}</span><p class="member-card-meta">Post-it y datos familiares</p><button class="customize-member" data-member-id="${member.id}">Personalizar perfil →</button></article>`).join('');
   familyGrid.querySelectorAll('.customize-member').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); openMemberModal(members.find(member => member.id === Number(button.dataset.memberId))); }));
+  renderEventMemberOptions(document.querySelector('#event-member-select')?.value || '');
 }
 function renderMemberFilters() {
   const filterBar = document.querySelector('#member-filters');
@@ -277,6 +286,7 @@ function showForm(event) {
   modal.querySelector('.modal-detail-view').hidden = true;
   eventForm.hidden = false;
   eventForm.reset();
+  renderEventMemberOptions(event?.member || members[0]?.key || '');
   document.querySelector('.form-error').textContent = '';
   document.querySelector('#form-kicker').textContent = event ? 'EDITAR POST-IT' : 'NUEVO POST-IT';
   document.querySelector('#form-title').textContent = event ? 'Editar Post-it' : 'Añadir Post-it';
@@ -373,7 +383,7 @@ memberForm.addEventListener('submit', event => {
   const data = Object.fromEntries(new FormData(memberForm));
   const existing = members.find(member => member.id === Number(memberForm.dataset.id));
   if (existing) Object.assign(existing, data); else members.push({ ...data, key: data.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), id: Date.now() });
-  saveMembers(); renderMembers(); renderMemberFilters(); renderEvents(getActiveFilter()); buildCalendar(); closeMemberModal();
+  saveMembers(); renderMembers(); renderMemberFilters(); renderEventMemberOptions(); renderEvents(getActiveFilter()); buildCalendar(); closeMemberModal();
 });
 document.querySelector('#notifications-button').addEventListener('click', openNotificationsModal);
 document.querySelector('.notifications-close').addEventListener('click', closeNotificationsModal);
