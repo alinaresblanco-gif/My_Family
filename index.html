@@ -181,6 +181,14 @@
     #agenda-upcoming .mini-event { cursor: pointer; }
     #agenda-upcoming .mini-event:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
     .event-form .modal-actions { margin-top: 18px; }
+    .choice-modal { max-width: 430px; }
+    .choice-modal h2 { margin-bottom: 8px; }
+    .choice-modal .muted { margin-bottom: 18px; }
+    .choice-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0 16px; border-bottom: 1px solid var(--line); }
+    .choice-options { display: grid; gap: 8px; margin-top: 16px; }
+    .choice-option { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); font-size: 13px; cursor: pointer; }
+    .choice-option input { accent-color: var(--green); }
+    .choice-option:has(input:disabled) { opacity: .5; cursor: default; }
     @media (max-width: 800px) { #view-inicio .page-heading { position: static; } #view-inicio .page-heading > div:first-child { width: 100%; } #view-inicio #add-event { position: static; } }
     @media (max-width: 480px) { #view-inicio .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } #view-inicio .stat-item:nth-child(3) { grid-column: 1 / -1; justify-self: center; } }
     @media (max-width: 800px) { #view-agenda .calendar-toolbar .view-switch { position: static; flex-basis: 100%; justify-content: center; margin-top: 8px; } }
@@ -271,11 +279,38 @@
         <h2 id="form-title">Añadir Post-it</h2>
         <label>Qué vais a hacer<input name="name" required maxlength="70" placeholder="Ej. Visita al dentista"></label>
         <div class="form-row"><label>Fecha<input name="date" type="date" required></label><label>Hora<input name="time" type="time" required></label></div><label>Para<select name="member" id="event-member-select" required></select></label>
+        <div class="form-row"><label>Aviso<select id="event-reminder-trigger"><option value="off">Aviso desactivado</option><option value="configure">Configurar aviso</option></select></label><label>Repetición<select id="event-repeat-trigger"><option value="none">No repetir</option><option value="configure">Configurar repetición</option></select></label></div>
         <label>Lugar o detalle<input name="place" required maxlength="100" placeholder="Ej. Centro de salud"></label>
         <label>Tipo<select name="category"><option value="🗓️ Evento">Evento</option><option value="🏥 Médico">Médico</option><option value="🎵 Actividad">Actividad</option><option value="⚽ Ocio">Ocio</option><option value="🛒 Tareas">Tareas</option></select></label>
+        <input name="reminderEnabled" type="hidden" value="false"><input name="reminderMinutesBefore" type="hidden" value="0"><input name="repeatFrequency" type="hidden" value="none">
         <p class="form-error" role="alert"></p>
         <div class="modal-actions"><button type="button" class="secondary-button modal-cancel">Cancelar</button><button type="submit" class="primary-button">Guardar Post-it</button></div>
       </form>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="reminder-modal" aria-hidden="true">
+    <div class="modal choice-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-modal-title">
+      <button class="modal-close" id="reminder-modal-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">AVISO DEL EVENTO</p><h2 id="reminder-modal-title">Configurar aviso</h2>
+      <div class="choice-toggle"><strong>Activar aviso</strong><label class="toggle"><input id="event-reminder-enabled" type="checkbox"><i></i></label></div>
+      <div class="choice-options" id="reminder-options">
+        <label class="choice-option"><input type="radio" name="reminder-choice" value="0"> A la hora del Evento</label>
+        <label class="choice-option"><input type="radio" name="reminder-choice" value="10"> 10 minutos antes</label>
+        <label class="choice-option"><input type="radio" name="reminder-choice" value="60"> 1 hora antes</label>
+        <label class="choice-option"><input type="radio" name="reminder-choice" value="1440"> 1 día antes</label>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="repeat-modal" aria-hidden="true">
+    <div class="modal choice-modal" role="dialog" aria-modal="true" aria-labelledby="repeat-modal-title">
+      <button class="modal-close" id="repeat-modal-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">REPETICIÓN DEL EVENTO</p><h2 id="repeat-modal-title">¿Cada cuánto se repite?</h2>
+      <div class="choice-options">
+        <label class="choice-option"><input type="radio" name="repeat-choice" value="daily"> 1 vez cada día</label>
+        <label class="choice-option"><input type="radio" name="repeat-choice" value="weekly"> 1 vez cada semana</label>
+        <label class="choice-option"><input type="radio" name="repeat-choice" value="monthly"> 1 vez al mes</label>
+        <label class="choice-option"><input type="radio" name="repeat-choice" value="yearly"> 1 vez al año</label>
+      </div>
     </div>
   </div>
   <div class="modal-backdrop" id="notifications-modal" aria-hidden="true">

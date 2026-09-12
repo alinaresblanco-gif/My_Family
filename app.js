@@ -16,6 +16,11 @@ const nextEventButton = document.querySelector('#next-event-button');
 const nextEventModal = document.querySelector('#next-event-modal');
 const dayEventsModal = document.querySelector('#day-events-modal');
 const dayEventsList = document.querySelector('#day-events-list');
+const reminderModal = document.querySelector('#reminder-modal');
+const repeatModal = document.querySelector('#repeat-modal');
+const reminderLabels = { 0: 'A la hora del Evento', 10: '10 minutos antes', 60: '1 hora antes', 1440: '1 día antes' };
+const repeatLabels = { none: 'No repetir', daily: '1 vez cada día', weekly: '1 vez cada semana', monthly: '1 vez al mes', yearly: '1 vez al año' };
+const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/KIA4bKxmwJoL9ehBJl8Apl?s=cl&p=a&mlu=4&ilr=4';
 let remoteSyncInProgress = false;
 const eventForm = document.querySelector('.event-form');
 const notificationsModal = document.querySelector('#notifications-modal');
@@ -50,7 +55,7 @@ function apiRequest(action, data = {}) {
     .then(response => response.ok ? response.json() : null)
     .catch(() => null);
 }
-function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled !== false, reminderMinutesBefore: event.reminderMinutesBefore || '', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
@@ -128,6 +133,37 @@ function renderEventMemberOptions(selectedKey = '') {
   select.innerHTML = members.length ? members.map(member => `<option value="${member.key}">${member.name}</option>`).join('') : '<option value="">No hay miembros disponibles</option>';
   select.disabled = members.length === 0;
   if (selectedKey && members.some(member => member.key === selectedKey)) select.value = selectedKey;
+}
+function renderEventOptions() {
+  const reminderSelect = document.querySelector('#event-reminder-trigger');
+  const repeatSelect = document.querySelector('#event-repeat-trigger');
+  const reminderValue = eventForm.elements.reminderMinutesBefore.value || '0';
+  const reminderEnabled = eventForm.elements.reminderEnabled.value === 'true';
+  const repeatValue = eventForm.elements.repeatFrequency.value || 'none';
+  reminderSelect.innerHTML = `<option value="current">${reminderEnabled ? reminderLabels[reminderValue] || 'Aviso configurado' : 'Aviso desactivado'}</option><option value="configure">Configurar aviso</option>`;
+  repeatSelect.innerHTML = `<option value="current">${repeatLabels[repeatValue] || repeatLabels.none}</option><option value="configure">Configurar repetición</option>`;
+  reminderSelect.value = 'current';
+  repeatSelect.value = 'current';
+}
+function closeReminderModal() { reminderModal.classList.remove('open'); reminderModal.setAttribute('aria-hidden', 'true'); renderEventOptions(); }
+function closeRepeatModal() { repeatModal.classList.remove('open'); repeatModal.setAttribute('aria-hidden', 'true'); renderEventOptions(); }
+function openReminderModal() {
+  document.querySelector('#event-reminder-enabled').checked = eventForm.elements.reminderEnabled.value === 'true';
+  const selected = eventForm.elements.reminderMinutesBefore.value || '0';
+  document.querySelectorAll('[name="reminder-choice"]').forEach(option => { option.checked = option.value === selected; });
+  document.querySelectorAll('[name="reminder-choice"]').forEach(option => { option.disabled = !document.querySelector('#event-reminder-enabled').checked; });
+  reminderModal.classList.add('open'); reminderModal.setAttribute('aria-hidden', 'false');
+}
+function openRepeatModal() { document.querySelectorAll('[name="repeat-choice"]').forEach(option => { option.checked = option.value === (eventForm.elements.repeatFrequency.value || 'none'); }); repeatModal.classList.add('open'); repeatModal.setAttribute('aria-hidden', 'false'); }
+function eventWhatsAppMessage(event) {
+  const member = getMember(event.member).name;
+  const reminder = event.reminderEnabled ? reminderLabels[event.reminderMinutesBefore] || 'Aviso configurado' : 'Aviso desactivado';
+  return [`Nuevo evento familiar`, `Qué: ${event.name}`, `Fecha: ${event.date}`, `Hora: ${event.time}`, `Para: ${member}`, `Lugar: ${event.place}`, `Tipo: ${event.category}`, `Aviso: ${reminder}`, `Repetición: ${repeatLabels[event.repeatFrequency] || repeatLabels.none}`].join('\n');
+}
+function openWhatsAppForEvent(event) {
+  const message = eventWhatsAppMessage(event);
+  navigator.clipboard?.writeText(message).catch(() => {});
+  window.open(WHATSAPP_GROUP_URL, '_blank', 'noopener');
 }
 function todayInputValue() { const date = new Date(); return dateKey(date); }
 function closeDocumentModal() { documentModal.classList.remove('open'); documentModal.setAttribute('aria-hidden', 'true'); }
@@ -286,11 +322,15 @@ function showForm(event) {
   modal.querySelector('.modal-detail-view').hidden = true;
   eventForm.hidden = false;
   eventForm.reset();
+  eventForm.elements.reminderEnabled.value = event?.reminderEnabled === true ? 'true' : 'false';
+  eventForm.elements.reminderMinutesBefore.value = String(event?.reminderMinutesBefore || '0');
+  eventForm.elements.repeatFrequency.value = event?.repeatFrequency || 'none';
   renderEventMemberOptions(event?.member || members[0]?.key || '');
   document.querySelector('.form-error').textContent = '';
   document.querySelector('#form-kicker').textContent = event ? 'EDITAR POST-IT' : 'NUEVO POST-IT';
   document.querySelector('#form-title').textContent = event ? 'Editar Post-it' : 'Añadir Post-it';
   if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; }); else eventForm.elements.date.value = todayKey;
+  renderEventOptions();
 }
 function openModal(id) { const event = events.find(item => item.id === id); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `<i class="member-dot ${memberColorClasses[event.member]}\"></i> ${memberNames[event.member]}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); const eventDate = new Date(`${event.date}T12:00:00`); const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name; modal.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; modal.querySelector('#modal-title').textContent = event.name; modal.querySelector('.modal-category').textContent = event.category.toUpperCase(); modal.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${memberName}`; modal.querySelectorAll('.modal-detail')[0].textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(eventDate)} · ${event.time}`; modal.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
@@ -333,6 +373,19 @@ modal.addEventListener('click', event => { if (event.target === modal) closeModa
 document.querySelector('.modal-done').addEventListener('click', () => { toggleDone(Number(modal.dataset.id)); closeModal(); });
 document.querySelector('.modal-edit').addEventListener('click', () => showForm(events.find(item => item.id === Number(modal.dataset.id))));
 document.querySelector('.modal-cancel').addEventListener('click', closeModal);
+document.querySelector('#event-reminder-trigger').addEventListener('change', event => { if (event.target.value === 'configure') openReminderModal(); });
+document.querySelector('#event-repeat-trigger').addEventListener('change', event => { if (event.target.value === 'configure') openRepeatModal(); });
+document.querySelector('#reminder-modal-close').addEventListener('click', closeReminderModal);
+document.querySelector('#repeat-modal-close').addEventListener('click', closeRepeatModal);
+reminderModal.addEventListener('click', event => { if (event.target === reminderModal) closeReminderModal(); });
+repeatModal.addEventListener('click', event => { if (event.target === repeatModal) closeRepeatModal(); });
+document.querySelector('#event-reminder-enabled').addEventListener('change', event => {
+  eventForm.elements.reminderEnabled.value = String(event.target.checked);
+  document.querySelectorAll('[name="reminder-choice"]').forEach(option => { option.disabled = !event.target.checked; });
+  if (!event.target.checked) closeReminderModal();
+});
+document.querySelectorAll('[name="reminder-choice"]').forEach(option => option.addEventListener('change', event => { eventForm.elements.reminderMinutesBefore.value = event.target.value; eventForm.elements.reminderEnabled.value = 'true'; closeReminderModal(); }));
+document.querySelectorAll('[name="repeat-choice"]').forEach(option => option.addEventListener('change', event => { eventForm.elements.repeatFrequency.value = event.target.value; closeRepeatModal(); }));
 nextEventButton.addEventListener('click', openNextEventModal);
 document.querySelector('#day-events-close').addEventListener('click', closeDayEventsModal);
 document.querySelector('#next-event-modal-dismiss').addEventListener('click', closeNextEventModal);
@@ -341,9 +394,13 @@ eventForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!eventForm.checkValidity()) { document.querySelector('.form-error').textContent = 'Completa los campos obligatorios.'; return; }
   const data = Object.fromEntries(new FormData(eventForm));
+  data.reminderEnabled = data.reminderEnabled === 'true';
+  data.reminderMinutesBefore = Number(data.reminderMinutesBefore || 0);
+  data.repeatFrequency = data.repeatFrequency || 'none';
   const existing = events.find(item => item.id === Number(modal.dataset.id));
-  if (existing) Object.assign(existing, data); else events.push({ ...data, id: Date.now(), done: false });
-  await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); closeModal();
+  const savedEvent = existing || { ...data, id: Date.now(), done: false };
+  if (existing) Object.assign(existing, data); else events.push(savedEvent);
+  await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); closeModal(); openWhatsAppForEvent(savedEvent);
 });
 document.querySelector('#add-recipe').addEventListener('click', openRecipeModal);
 document.querySelectorAll('.recipe-modal-close').forEach(button => button.addEventListener('click', closeRecipeModal));
@@ -427,7 +484,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeDayEventsModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeDayEventsModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); closeReminderModal(); closeRepeatModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
