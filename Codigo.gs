@@ -92,7 +92,7 @@ function upsert_(table, data) {
 
 function ensureSchema_() {
   var requiredColumns = {
-    eventos: ['repeatFrequency']
+    eventos: ['reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency']
   };
   Object.keys(requiredColumns).forEach(function(table) {
     var sheet = sheet_(table);
