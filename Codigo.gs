@@ -103,6 +103,11 @@ function ensureSchema_() {
   });
 }
 
+function migrateSchema() {
+  ensureSchema_();
+  return 'Esquema actualizado';
+}
+
 function now_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', "yyyy-MM-dd'T'HH:mm:ssXXX"); }
 
 function ensureFamily_(familyId) {
