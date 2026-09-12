@@ -436,7 +436,7 @@ function renderUpcoming() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const startKey = dateKey(weekStart);
   const endKey = dateKey(weekEnd);
-  const upcoming = events.filter(event => eventDateKey(event) >= startKey && eventDateKey(event) <= endKey).sort((a, b) => `${eventDateKey(a)}T${a.time}`.localeCompare(`${eventDateKey(b)}T${b.time}`));
+  const upcoming = events.filter(event => eventDateKey(event) >= todayKey && eventDateKey(event) >= startKey && eventDateKey(event) <= endKey).sort((a, b) => `${eventDateKey(a)}T${a.time}`.localeCompare(`${eventDateKey(b)}T${b.time}`));
   summaryPeriod.textContent = `${weekStart.getDate()}-${weekEnd.getDate()} ${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(weekEnd)}`;
   summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}" data-upcoming-event-id="${event.id}" tabindex="0" role="button"><b>${event.time}</b>${memberDot(event.member)}<div><strong>${event.name}</strong><small>${getMember(event.member).name} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
   summary.querySelectorAll('[data-upcoming-event-id]').forEach(item => {
