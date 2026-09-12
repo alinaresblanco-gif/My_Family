@@ -74,6 +74,7 @@ Es la tabla común de Post-it de Inicio y eventos de Agenda.
 | `doneAt` | fecha-hora | No | Momento en que se completó. |
 | `reminderEnabled` | booleano | Sí | Si genera recordatorio. |
 | `reminderMinutesBefore` | número | No | Minutos de antelación. |
+| `repeatFrequency` | texto | Sí | `none`, `daily`, `weekly`, `monthly` o `yearly`. |
 | `createdBy` | texto | Sí | Usuario o dispositivo que lo creó. |
 | `createdAt` | fecha-hora | Sí | Alta. |
 | `updatedAt` | fecha-hora | Sí | Último cambio. |

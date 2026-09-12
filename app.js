@@ -4,7 +4,7 @@ const FAMILY_ID = 'family-my-family';
 let currentAppVersion = null;
 const defaultEvents = [];
 const savedEvents = localStorage.getItem('my-family-events');
-const events = savedEvents ? JSON.parse(savedEvents) : defaultEvents;
+const events = [];
 const today = new Date();
 const todayKey = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
 events.forEach(event => { if (!event.date) event.date = todayKey; });
@@ -59,10 +59,35 @@ function eventPayload(event) { return { eventId: String(event.id), familyId: FAM
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
-function saveEvents() { localStorage.setItem('my-family-events', JSON.stringify(events)); return Promise.all(events.map(event => apiRequest('eventUpsert', { data: eventPayload(event) }))); }
+function saveEvents() { return Promise.all(events.map(event => apiRequest('eventUpsert', { data: eventPayload(event) }))); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected')?.dataset.filter || 'todos'; }
-function eventDateKey(event) { return String(event.date || '').slice(0, 10); }
-function todayEvents() { return events.filter(event => eventDateKey(event) === todayKey); }
+function eventDateKey(event) { return String(event?.date || '').slice(0, 10); }
+function isEventOnDate(event, targetKey) {
+  const startKey = eventDateKey(event);
+  if (!startKey || targetKey < startKey) return false;
+  const repeat = event.repeatFrequency || 'none';
+  if (repeat === 'none') return targetKey === startKey;
+  const start = new Date(`${startKey}T12:00:00`);
+  const target = new Date(`${targetKey}T12:00:00`);
+  const daysSinceStart = Math.round((target - start) / 86400000);
+  if (repeat === 'daily') return daysSinceStart >= 0;
+  if (repeat === 'weekly') return daysSinceStart >= 0 && daysSinceStart % 7 === 0;
+  const lastDayOfTargetMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  if (repeat === 'monthly') return target.getDate() === Math.min(start.getDate(), lastDayOfTargetMonth);
+  if (repeat === 'yearly') return target.getMonth() === start.getMonth() && target.getDate() === Math.min(start.getDate(), lastDayOfTargetMonth);
+  return false;
+}
+function eventsForRange(startKey, endKey) {
+  const start = new Date(`${startKey}T12:00:00`);
+  const end = new Date(`${endKey}T12:00:00`);
+  const occurrences = [];
+  for (const eventDate = new Date(start); eventDate <= end; eventDate.setDate(eventDate.getDate() + 1)) {
+    const currentKey = dateKey(eventDate);
+    events.forEach(event => { if (event && isEventOnDate(event, currentKey)) occurrences.push({ ...event, date: currentKey, occurrenceId: `${event.id}-${currentKey}` }); });
+  }
+  return occurrences;
+}
+function todayEvents() { return eventsForRange(todayKey, todayKey); }
 function getNextEvent(eventsForToday = todayEvents()) {
   return eventsForToday.filter(event => !event.done).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')))[0] || null;
 }
@@ -102,10 +127,17 @@ async function connectSheets() {
   if (!settings.sync) return;
   const response = await apiRequest('bootstrap');
   if (!response?.ok) return;
-  const data = response.data || {};
+  let data = response.data || {};
   const hadLocalData = Boolean(savedEvents || savedMembers || savedRecipes || savedDocuments);
   const hadRemoteData = Boolean(data.events?.length || data.members?.length || data.recipes?.length || data.documents?.length);
-  if (!hadRemoteData && hadLocalData) { saveEvents(); saveMembers(); saveRecipes(); }
+  if (!data.events?.length && savedEvents) {
+    const localEvents = JSON.parse(savedEvents);
+    await Promise.all(localEvents.map(event => apiRequest('eventUpsert', { data: eventPayload(event) })));
+    const migrated = await apiRequest('bootstrap');
+    if (migrated?.ok) data = migrated.data || {};
+  }
+  if (!hadRemoteData && !savedEvents && hadLocalData) { saveMembers(); saveRecipes(); }
+  localStorage.removeItem('my-family-events');
   applyRemoteData(data);
   document.querySelector('.sync-status span').innerHTML = 'Sincronizado con Google Sheets<br><small>Datos locales disponibles sin conexión</small>';
 }
@@ -338,7 +370,7 @@ function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
 function openDayEventsModal(selectedDateKey) {
   const date = new Date(`${selectedDateKey}T12:00:00`);
-  const dayEvents = events.filter(event => eventDateKey(event) === selectedDateKey).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+  const dayEvents = eventsForRange(selectedDateKey, selectedDateKey).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
   document.querySelector('#day-events-title').textContent = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date);
   dayEventsList.innerHTML = Array.from({ length: 24 }, (_, hour) => { const hourKey = `${String(hour).padStart(2, '0')}:`; const hourEvents = dayEvents.filter(event => String(event.time || '').startsWith(hourKey)); const eventMarkup = hourEvents.map(event => `<button class="day-event-button ${event.done ? 'done' : ''}" type="button" data-day-event-id="${event.id}"><strong>${event.name}</strong><small>${event.time || '--:--'} · ${getMember(event.member).name} · ${event.place || 'Sin lugar indicado'}</small></button>`).join(''); return `<div class="day-event-row"><span class="day-event-time">${String(hour).padStart(2, '0')}:00</span><div class="day-event-slot">${eventMarkup}</div></div>`; }).join('');
   dayEventsList.querySelectorAll('[data-day-event-id]').forEach(button => button.addEventListener('click', () => { closeDayEventsModal(); openModal(Number(button.dataset.dayEventId)); }));
@@ -503,11 +535,11 @@ function renderUpcoming() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const startKey = dateKey(weekStart);
   const endKey = dateKey(weekEnd);
-  const upcoming = events.filter(event => eventDateKey(event) >= todayKey && eventDateKey(event) >= startKey && eventDateKey(event) <= endKey).sort((a, b) => `${eventDateKey(a)}T${a.time}`.localeCompare(`${eventDateKey(b)}T${b.time}`));
+  const upcoming = eventsForRange(startKey, endKey).filter(event => event?.date >= todayKey).sort((a, b) => `${a?.date || ''}T${a?.time || ''}`.localeCompare(`${b?.date || ''}T${b?.time || ''}`));
   summaryPeriod.textContent = `${weekStart.getDate()}-${weekEnd.getDate()} ${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(weekEnd)}`;
-  summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}" data-upcoming-event-id="${event.id}" tabindex="0" role="button"><b>${event.time}</b>${memberDot(event.member)}<div><strong>${event.name}</strong><small>${getMember(event.member).name} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
+  summary.innerHTML = upcoming.length ? upcoming.slice(0, 6).map(event => `<div class="mini-event ${event.done ? 'done' : ''}" data-upcoming-event-id="${event.occurrenceId}" tabindex="0" role="button"><b>${event.time}</b>${memberDot(event.member)}<div><strong>${event.name}</strong><small>${getMember(event.member).name} · ${event.place}</small></div></div>`).join('') : '<p class="week-empty">No hay eventos esta semana.</p>';
   summary.querySelectorAll('[data-upcoming-event-id]').forEach(item => {
-    const open = () => openNextEventModal(events.find(event => String(event.id) === item.dataset.upcomingEventId));
+    const open = () => openNextEventModal(upcoming.find(event => String(event.occurrenceId) === item.dataset.upcomingEventId));
     item.addEventListener('click', open);
     item.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
   });
@@ -530,7 +562,7 @@ function renderWeek(calendar) {
     const day = new Date(weekStart);
     day.setDate(day.getDate() + index);
     const key = dateKey(day);
-    const dayEvents = events.filter(event => eventDateKey(event) === key).sort((a, b) => a.time.localeCompare(b.time));
+    const dayEvents = eventsForRange(key, key).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
     const eventMarkup = dayEvents.length ? dayEvents.map(event => `<button class="week-event ${event.done ? 'done' : ''}" type="button" data-week-event-id="${event.id}" style="--member-color:${getMember(event.member).color}" title="${event.name}"><span class="week-event-time">${event.time}</span><span class="week-event-name">${event.name}</span><small class="week-event-member">${getMember(event.member).name}</small></button>`).join('') : '<span class="week-empty">Sin eventos</span>';
     return `<div class="week-day ${key === todayKey ? 'today' : ''}"><div class="week-day-label">${new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(day).toUpperCase()}</div><div class="week-day-number">${day.getDate()}</div>${eventMarkup}</div>`;
   }).join('');
@@ -560,7 +592,7 @@ function buildCalendar() {
     const displayedDay = dayNumber <= 0 ? previousMonthDays + dayNumber : dayNumber > daysInMonth ? dayNumber - daysInMonth : dayNumber;
     const cellDate = new Date(year, month, dayNumber);
     const cellDateKey = dateKey(cellDate);
-    const dayEvents = events.filter(event => eventDateKey(event) === cellDateKey);
+    const dayEvents = eventsForRange(cellDateKey, cellDateKey);
     const isToday = isCurrentMonth && cellDateKey === todayKey;
     const visibleEvents = dayEvents.slice(0, 3).map(event => `<span class="cal-event-pill ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" title="${event.name}">${event.time || ''} ${event.name}</span>`).join('');
     const moreEvents = dayEvents.length > 3 ? `<span class="cal-event-more">+${dayEvents.length - 3} más</span>` : '';

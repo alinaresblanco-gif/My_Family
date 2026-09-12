@@ -16,6 +16,7 @@ function json_(value) { return ContentService.createTextOutput(JSON.stringify(va
 function handle_(action, input) {
   try {
     var familyId = String(input.familyId || DEFAULT_FAMILY_ID);
+    ensureSchema_();
     ensureFamily_(familyId);
     if (action === 'bootstrap') return json_({ ok: true, data: { family: rows_('familias', familyId)[0] || null, members: rows_('miembros', familyId), events: rows_('eventos', familyId), settings: rows_('ajustes_familia', familyId)[0] || null, recipes: rows_('recetas', familyId), documents: rows_('documentos', familyId), notifications: rows_('notificaciones', familyId) }, error: null });
     var table = actionTable_(action);
@@ -87,6 +88,19 @@ function upsert_(table, data) {
   if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([row]);
   else sheet.appendRow(row);
   return data;
+}
+
+function ensureSchema_() {
+  var requiredColumns = {
+    eventos: ['repeatFrequency']
+  };
+  Object.keys(requiredColumns).forEach(function(table) {
+    var sheet = sheet_(table);
+    var headers = headers_(sheet);
+    requiredColumns[table].forEach(function(column) {
+      if (headers.indexOf(column) < 0) sheet.getRange(1, sheet.getLastColumn() + 1).setValue(column);
+    });
+  });
 }
 
 function now_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', "yyyy-MM-dd'T'HH:mm:ssXXX"); }
