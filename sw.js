@@ -2,7 +2,7 @@ importScripts('./firebase-config.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
 
-const CACHE_NAME = 'my-family-v2026.9.13.6';
+const CACHE_NAME = 'my-family-v2026.9.13.8';
 const APP_FILES = [
   './',
   './index.html',

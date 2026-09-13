@@ -357,6 +357,23 @@ function devicePlatform() {
   if (/Android/i.test(navigator.userAgent)) return 'Android';
   return 'escritorio';
 }
+async function getFcmToken_(messaging, registration) {
+  const options = { vapidKey: self.MY_FAMILY_FIREBASE.vapidKey, serviceWorkerRegistration: registration };
+  try {
+    return await messaging.getToken(options);
+  } catch (firstError) {
+    await registration.update().catch(() => null);
+    const staleSubscription = await registration.pushManager.getSubscription().catch(() => null);
+    if (staleSubscription) await staleSubscription.unsubscribe().catch(() => false);
+    await messaging.deleteToken().catch(() => false);
+    try {
+      return await messaging.getToken(options);
+    } catch (retryError) {
+      const code = retryError.code || firstError.code || retryError.name || firstError.name;
+      throw new Error(`${retryError.message || firstError.message}${code ? ` [${code}]` : ''}`);
+    }
+  }
+}
 async function registerPushDevice(requestPermission = false) {
   if (!('serviceWorker' in navigator) || !('Notification' in window)) throw new Error('Este navegador no admite notificaciones push.');
   if (/iPhone|iPad|iPod/i.test(navigator.userAgent) && !navigator.standalone && !matchMedia('(display-mode: standalone)').matches) throw new Error('En iPhone, añade My Family a la pantalla de inicio y ábrela desde su icono.');
@@ -366,7 +383,7 @@ async function registerPushDevice(requestPermission = false) {
   if (!firebase.apps.length) firebase.initializeApp(self.MY_FAMILY_FIREBASE.config);
   const registration = await navigator.serviceWorker.ready;
   const messaging = firebase.messaging();
-  const token = await messaging.getToken({ vapidKey: self.MY_FAMILY_FIREBASE.vapidKey, serviceWorkerRegistration: registration });
+  const token = await getFcmToken_(messaging, registration);
   if (!token) throw new Error('Firebase no devolvió un token para este dispositivo.');
   await pushApiRequest('pushSubscribe', { data: { deviceId: getPushDeviceId(), fcmToken: token, platform: devicePlatform(), browser: navigator.userAgent, permission, active: true, lastSeenAt: new Date().toISOString() } });
   localStorage.setItem('my-family-push-registered', 'true');
