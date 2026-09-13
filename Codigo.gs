@@ -21,6 +21,7 @@ function handle_(action, input) {
     if (action === 'bootstrap') return json_({ ok: true, data: { family: rows_('familias', familyId)[0] || null, members: rows_('miembros', familyId), events: rows_('eventos', familyId), settings: rows_('ajustes_familia', familyId)[0] || null, recipes: rows_('recetas', familyId), documents: rows_('documentos', familyId), notifications: rows_('notificaciones', familyId) }, error: null });
     if (action === 'pushSubscribe') {
       var subscription = input.data || input;
+      if (!subscription.deviceId || !subscription.fcmToken) throw new Error('Faltan deviceId o fcmToken');
       subscription.familyId = familyId;
       subscription.active = true;
       return json_({ ok: true, data: upsert_('dispositivos_push', subscription), error: null });

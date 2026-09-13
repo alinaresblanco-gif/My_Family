@@ -57,6 +57,14 @@ function apiRequest(action, data = {}) {
     .then(response => response.ok ? response.json() : null)
     .catch(() => null);
 }
+async function pushApiRequest(action, data = {}) {
+  const response = await fetch(SHEETS_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, familyId: FAMILY_ID, ...data }) });
+  const text = await response.text();
+  let payload;
+  try { payload = JSON.parse(text); } catch (error) { throw new Error(`Apps Script respondió con HTTP ${response.status}.`); }
+  if (!response.ok || !payload.ok) throw new Error(payload.error || `No se pudo registrar el dispositivo (HTTP ${response.status}).`);
+  return payload;
+}
 function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
@@ -351,6 +359,7 @@ function devicePlatform() {
 }
 async function registerPushDevice(requestPermission = false) {
   if (!('serviceWorker' in navigator) || !('Notification' in window)) throw new Error('Este navegador no admite notificaciones push.');
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent) && !navigator.standalone && !matchMedia('(display-mode: standalone)').matches) throw new Error('En iPhone, añade My Family a la pantalla de inicio y ábrela desde su icono.');
   if (!firebaseMessagingReady()) throw new Error('Falta completar firebase-config.js.');
   const permission = requestPermission ? await Notification.requestPermission() : Notification.permission;
   if (permission !== 'granted') throw new Error(permission === 'denied' ? 'El permiso de notificaciones está bloqueado en el navegador.' : 'Debes permitir las notificaciones.');
@@ -359,8 +368,8 @@ async function registerPushDevice(requestPermission = false) {
   const messaging = firebase.messaging();
   const token = await messaging.getToken({ vapidKey: self.MY_FAMILY_FIREBASE.vapidKey, serviceWorkerRegistration: registration });
   if (!token) throw new Error('Firebase no devolvió un token para este dispositivo.');
-  const response = await apiRequest('pushSubscribe', { data: { deviceId: getPushDeviceId(), fcmToken: token, platform: devicePlatform(), browser: navigator.userAgent, permission, active: true, lastSeenAt: new Date().toISOString() } });
-  if (!response?.ok) throw new Error(response?.error || 'No se pudo registrar el dispositivo.');
+  await pushApiRequest('pushSubscribe', { data: { deviceId: getPushDeviceId(), fcmToken: token, platform: devicePlatform(), browser: navigator.userAgent, permission, active: true, lastSeenAt: new Date().toISOString() } });
+  localStorage.setItem('my-family-push-registered', 'true');
   if (!foregroundMessagingBound) {
     foregroundMessagingBound = true;
     messaging.onMessage(payload => {
@@ -371,7 +380,8 @@ async function registerPushDevice(requestPermission = false) {
   return registration;
 }
 async function disablePushDevice() {
-  await apiRequest('pushUnsubscribe', { data: { deviceId: getPushDeviceId(), active: false, permission: Notification.permission, lastSeenAt: new Date().toISOString() } });
+  await pushApiRequest('pushUnsubscribe', { data: { deviceId: getPushDeviceId(), active: false, permission: Notification.permission, lastSeenAt: new Date().toISOString() } }).catch(() => null);
+  localStorage.removeItem('my-family-push-registered');
   if (firebaseMessagingReady()) {
     if (!firebase.apps.length) firebase.initializeApp(self.MY_FAMILY_FIREBASE.config);
     await firebase.messaging().deleteToken().catch(() => false);
@@ -379,13 +389,17 @@ async function disablePushDevice() {
 }
 async function enableDeviceNotifications() {
   const button = document.querySelector('#enable-device-notifications');
+  const status = document.querySelector('#push-registration-status');
   button.disabled = true;
+  status.textContent = 'Registrando este dispositivo...';
   try {
     const registration = await registerPushDevice(true);
     await registration.showNotification('Avisos activados', { body: 'Este dispositivo ya puede recibir notificaciones de My Family.', icon: 'imagenes/logo-myfamily-trans-ok.png' });
     document.querySelector('#notifications-setting-status').textContent = 'Avisos push activos en este dispositivo';
+    status.textContent = 'Dispositivo registrado correctamente.';
   } catch (error) {
     document.querySelector('#notifications-setting-status').textContent = error.message;
+    status.textContent = error.message;
   } finally {
     button.disabled = false;
   }
