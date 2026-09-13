@@ -186,16 +186,14 @@ Necesaria para mandar avisos a los móviles donde esté instalada la PWA.
 | `memberId` | texto | No | Miembro que autorizó el dispositivo. |
 | `platform` | texto | Sí | Android, iOS, escritorio u otro. |
 | `browser` | texto | No | Chrome, Safari, Firefox, etc. |
-| `endpoint` | texto | Sí | Endpoint Web Push. Es secreto operativo. |
-| `p256dh` | texto | Sí | Clave pública de suscripción. |
-| `auth` | texto | Sí | Token de autenticación de suscripción. |
+| `fcmToken` | texto | Sí | Token de registro de Firebase Cloud Messaging. Es secreto operativo. |
 | `permission` | texto | Sí | `granted`, `denied`, `default`. |
 | `active` | booleano | Sí | Si el dispositivo puede recibir avisos. |
 | `lastSeenAt` | fecha-hora | Sí | Último contacto. |
 | `createdAt` | fecha-hora | Sí | Alta. |
 | `updatedAt` | fecha-hora | Sí | Última renovación. |
 
-Nunca guardar claves privadas VAPID en la hoja. Las claves privadas deben estar en propiedades protegidas de Apps Script o en un servicio backend seguro.
+Nunca guardar la clave privada de la cuenta de servicio en la hoja. Debe estar en Script Properties de Apps Script.
 
 ### 2.9 `envios_push`
 
@@ -301,31 +299,25 @@ Todas las peticiones deben comprobar `familyId`, validar campos y devolver JSON 
 - `POST ?action=settingsUpdate`: actualiza preferencias.
 - `GET ?action=notifications`: devuelve avisos y lecturas del destinatario.
 - `POST ?action=notificationRead`: marca un aviso leído o no leído.
-- `POST ?action=pushSubscribe`: registra o renueva `endpoint`, `p256dh` y `auth`.
+- `POST ?action=pushSubscribe`: registra o renueva el `fcmToken` del dispositivo.
 - `POST ?action=pushUnsubscribe`: desactiva un dispositivo.
-- `POST ?action=pushTest`: envía un aviso de prueba al dispositivo autenticado.
+- `POST ?action=pushTest`: envía un aviso de prueba a la familia; exige `PUSH_API_KEY`.
 
 ## 6. Flujo de avisos móviles
 
 1. La app solicita permiso de notificaciones.
-2. El service worker crea una suscripción Web Push.
+2. Firebase Messaging crea un token FCM usando la clave pública VAPID.
 3. La app envía la suscripción a `pushSubscribe`.
 4. Apps Script crea una fila en `notificaciones` cuando ocurre un evento, vencimiento o aviso del sistema.
 5. Un proceso programado revisa `notificaciones` y crea envíos en `envios_push`.
-6. Un servicio Web Push envía el mensaje usando las claves VAPID.
-7. El service worker recibe `push` y muestra la notificación del sistema.
+6. Apps Script obtiene un token OAuth 2.0 de la cuenta de servicio y llama a FCM HTTP v1.
+7. Firebase Messaging entrega el mensaje y el service worker muestra la notificación del sistema.
 8. Al pulsar el aviso, `notificationclick` abre la app y el backend puede marcarlo como entregado.
-9. Si el endpoint devuelve 404 o 410, marcar `dispositivos_push.active = FALSE`.
+9. Si FCM devuelve `UNREGISTERED`, marcar `dispositivos_push.active = FALSE`.
 
 ### Importante sobre Google Apps Script
 
-Google Sheets puede ser la base de datos y Apps Script puede ser la API, pero el envío Web Push necesita una librería o servicio que firme mensajes VAPID. No se deben guardar claves privadas en el navegador ni en una hoja visible. Opciones:
-
-- Apps Script con una implementación Web Push compatible y claves guardadas en `PropertiesService` protegido.
-- Un pequeño servicio Node/Cloud Run/Cloud Functions para el envío Push, usando Sheets como almacenamiento.
-- Firebase Cloud Messaging si se prefiere delegar la entrega móvil.
-
-Para la primera versión recomiendo: Sheets + Apps Script para datos y un servicio de envío Push separado, porque separa secretos y permite reintentos fiables.
+Google Sheets actúa como base de datos, Apps Script como API y emisor, y Firebase Cloud Messaging realiza la entrega. La configuración web y la clave VAPID pública pueden estar en la PWA; la clave privada de la cuenta de servicio solo puede estar en `PropertiesService`.
 
 ## 7. Automatismos programados
 

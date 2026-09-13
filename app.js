@@ -1,7 +1,9 @@
 const FALLBACK_APP_VERSION = '2026.09.09.2';
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwGPK6njz5Y831B-ABIYpYbgyTiXgylXqa4aRvmS9Kw96vW0nB_mYtA3g4yvCPnxlLn/exec';
 const FAMILY_ID = 'family-my-family';
+const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
 let currentAppVersion = null;
+let foregroundMessagingBound = false;
 const defaultEvents = [];
 const savedEvents = localStorage.getItem('my-family-events');
 const events = [];
@@ -321,7 +323,8 @@ function renderNotifications() {
   count.hidden = unreadCount === 0;
   notificationList.innerHTML = notifications.length ? notifications.map(notification => `<button class="notification-item ${notification.read ? '' : 'unread'}" data-notification-id="${notification.id}"><i class="notification-dot"></i><span><strong>${notification.title}</strong><small>${notification.message}</small></span></button>`).join('') : '<p class="notification-empty">No tienes notificaciones.</p>';
   notificationList.querySelectorAll('[data-notification-id]').forEach(button => button.addEventListener('click', () => {
-    const notification = notifications.find(item => item.id === Number(button.dataset.notificationId));
+    const notification = notifications.find(item => String(item.id) === button.dataset.notificationId);
+    if (!notification) return;
     notification.read = !notification.read;
     saveNotifications();
     renderNotifications();
@@ -329,10 +332,63 @@ function renderNotifications() {
 }
 function openNotificationsModal() { if (!settings.notifications) return; renderNotifications(); notificationsModal.classList.add('open'); notificationsModal.setAttribute('aria-hidden', 'false'); }
 function closeNotificationsModal() { notificationsModal.classList.remove('open'); notificationsModal.setAttribute('aria-hidden', 'true'); }
+function getPushDeviceId() {
+  let deviceId = localStorage.getItem(PUSH_DEVICE_ID_KEY);
+  if (!deviceId) {
+    deviceId = self.crypto?.randomUUID?.() || `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(PUSH_DEVICE_ID_KEY, deviceId);
+  }
+  return deviceId;
+}
+function firebaseMessagingReady() {
+  const firebaseSettings = self.MY_FAMILY_FIREBASE;
+  return Boolean(self.firebase?.messaging && firebaseSettings?.vapidKey && !firebaseSettings.vapidKey.startsWith('REEMPLAZAR_'));
+}
+function devicePlatform() {
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) return 'iOS';
+  if (/Android/i.test(navigator.userAgent)) return 'Android';
+  return 'escritorio';
+}
+async function registerPushDevice(requestPermission = false) {
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) throw new Error('Este navegador no admite notificaciones push.');
+  if (!firebaseMessagingReady()) throw new Error('Falta completar firebase-config.js.');
+  const permission = requestPermission ? await Notification.requestPermission() : Notification.permission;
+  if (permission !== 'granted') throw new Error(permission === 'denied' ? 'El permiso de notificaciones está bloqueado en el navegador.' : 'Debes permitir las notificaciones.');
+  if (!firebase.apps.length) firebase.initializeApp(self.MY_FAMILY_FIREBASE.config);
+  const registration = await navigator.serviceWorker.ready;
+  const messaging = firebase.messaging();
+  const token = await messaging.getToken({ vapidKey: self.MY_FAMILY_FIREBASE.vapidKey, serviceWorkerRegistration: registration });
+  if (!token) throw new Error('Firebase no devolvió un token para este dispositivo.');
+  const response = await apiRequest('pushSubscribe', { data: { deviceId: getPushDeviceId(), fcmToken: token, platform: devicePlatform(), browser: navigator.userAgent, permission, active: true, lastSeenAt: new Date().toISOString() } });
+  if (!response?.ok) throw new Error(response?.error || 'No se pudo registrar el dispositivo.');
+  if (!foregroundMessagingBound) {
+    foregroundMessagingBound = true;
+    messaging.onMessage(payload => {
+      const data = payload.data || {};
+      registration.showNotification(data.title || 'My Family', { body: data.body || 'Tienes una nueva notificación.', icon: data.icon || 'imagenes/logo-myfamily-trans-ok.png', data: { url: data.url || './', notificationId: data.notificationId || '' } });
+    });
+  }
+  return registration;
+}
+async function disablePushDevice() {
+  await apiRequest('pushUnsubscribe', { data: { deviceId: getPushDeviceId(), active: false, permission: Notification.permission, lastSeenAt: new Date().toISOString() } });
+  if (firebaseMessagingReady()) {
+    if (!firebase.apps.length) firebase.initializeApp(self.MY_FAMILY_FIREBASE.config);
+    await firebase.messaging().deleteToken().catch(() => false);
+  }
+}
 async function enableDeviceNotifications() {
-  if (!('Notification' in window)) return;
-  const permission = await Notification.requestPermission();
-  if (permission === 'granted') new Notification('Avisos activados', { body: 'Recibirás las nuevas notificaciones de My Family en este dispositivo.', icon: 'imagenes/logo-myfamily-trans-ok.png' });
+  const button = document.querySelector('#enable-device-notifications');
+  button.disabled = true;
+  try {
+    const registration = await registerPushDevice(true);
+    await registration.showNotification('Avisos activados', { body: 'Este dispositivo ya puede recibir notificaciones de My Family.', icon: 'imagenes/logo-myfamily-trans-ok.png' });
+    document.querySelector('#notifications-setting-status').textContent = 'Avisos push activos en este dispositivo';
+  } catch (error) {
+    document.querySelector('#notifications-setting-status').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderEvents(filter = 'todos') {
@@ -479,7 +535,7 @@ document.querySelector('.notifications-close').addEventListener('click', closeNo
 notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
 document.querySelector('#mark-all-read').addEventListener('click', () => { notifications.forEach(notification => { notification.read = true; }); saveNotifications(); renderNotifications(); });
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
-document.querySelector('#notifications-setting').addEventListener('change', event => { settings.notifications = event.target.checked; saveSettings(); renderSettings(); if (!settings.notifications) closeNotificationsModal(); });
+document.querySelector('#notifications-setting').addEventListener('change', async event => { settings.notifications = event.target.checked; saveSettings(); renderSettings(); if (!settings.notifications) { closeNotificationsModal(); await disablePushDevice(); } });
 document.querySelector('#sync-setting').addEventListener('change', event => { settings.sync = event.target.checked; saveSettings(); renderSettings(); });
 document.querySelector('#event-reminders-setting').addEventListener('change', event => { settings.eventReminders = event.target.checked; saveSettings(); renderSettings(); });
 document.querySelector('#document-reminders-setting').addEventListener('change', event => { settings.documentReminders = event.target.checked; saveSettings(); renderSettings(); });
@@ -620,6 +676,7 @@ document.querySelector('#current-date-label').textContent = formatCurrentDate();
 async function startApp() {
   await connectSheets();
   renderMemberFilters(); renderEvents(); renderNotifications(); renderRecipes(); renderDocuments(); renderMembers(); renderSettings(); buildCalendar(); checkPublishedVersion(); checkPinLock();
+  if (settings.notifications && 'Notification' in window && Notification.permission === 'granted' && firebaseMessagingReady()) registerPushDevice().catch(() => {});
 }
 startApp();
 setInterval(checkPublishedVersion, 60000);

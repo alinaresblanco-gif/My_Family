@@ -19,6 +19,22 @@ function handle_(action, input) {
     ensureSchema_();
     ensureFamily_(familyId);
     if (action === 'bootstrap') return json_({ ok: true, data: { family: rows_('familias', familyId)[0] || null, members: rows_('miembros', familyId), events: rows_('eventos', familyId), settings: rows_('ajustes_familia', familyId)[0] || null, recipes: rows_('recetas', familyId), documents: rows_('documentos', familyId), notifications: rows_('notificaciones', familyId) }, error: null });
+    if (action === 'pushSubscribe') {
+      var subscription = input.data || input;
+      subscription.familyId = familyId;
+      subscription.active = true;
+      return json_({ ok: true, data: upsert_('dispositivos_push', subscription), error: null });
+    }
+    if (action === 'pushUnsubscribe') {
+      var unsubscription = input.data || input;
+      unsubscription.familyId = familyId;
+      unsubscription.active = false;
+      return json_({ ok: true, data: upsert_('dispositivos_push', unsubscription), error: null });
+    }
+    if (action === 'pushTest') {
+      verifyPushApiKey_(input.apiKey);
+      return json_({ ok: true, data: sendPushToFamily_(familyId, input.title || 'Prueba de My Family', input.message || 'Las notificaciones push funcionan correctamente.', input.url || './', 'system'), error: null });
+    }
     var table = actionTable_(action);
     if (!table) throw new Error('Accion no soportada: ' + action);
     if (['events', 'recipes', 'documents', 'members', 'settings', 'notifications'].indexOf(action) >= 0) return json_({ ok: true, data: rows_(table, familyId), error: null });
@@ -37,7 +53,7 @@ function handle_(action, input) {
 }
 
 function actionTable_(action) {
-  var map = { events: 'eventos', eventUpsert: 'eventos', eventDelete: 'eventos', recipes: 'recetas', recipeUpsert: 'recetas', documents: 'documentos', documentCreate: 'documentos', documentDelete: 'documentos', members: 'miembros', memberUpsert: 'miembros', settings: 'ajustes_familia', settingsUpdate: 'ajustes_familia', notifications: 'notificaciones', pushSubscribe: 'dispositivos_push', pushUnsubscribe: 'dispositivos_push', pushTest: 'notificaciones' };
+  var map = { events: 'eventos', eventUpsert: 'eventos', eventDelete: 'eventos', recipes: 'recetas', recipeUpsert: 'recetas', documents: 'documentos', documentCreate: 'documentos', documentDelete: 'documentos', members: 'miembros', memberUpsert: 'miembros', settings: 'ajustes_familia', settingsUpdate: 'ajustes_familia', notifications: 'notificaciones' };
   return map[action] || null;
 }
 
@@ -92,7 +108,8 @@ function upsert_(table, data) {
 
 function ensureSchema_() {
   var requiredColumns = {
-    eventos: ['reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency']
+    eventos: ['reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency'],
+    dispositivos_push: ['fcmToken']
   };
   Object.keys(requiredColumns).forEach(function(table) {
     var sheet = sheet_(table);
@@ -109,6 +126,100 @@ function migrateSchema() {
 }
 
 function now_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', "yyyy-MM-dd'T'HH:mm:ssXXX"); }
+
+function verifyPushApiKey_(apiKey) {
+  var expected = PropertiesService.getScriptProperties().getProperty('PUSH_API_KEY');
+  if (!expected || String(apiKey || '') !== expected) throw new Error('No autorizado para enviar notificaciones');
+}
+
+function base64Url_(value) {
+  var bytes = typeof value === 'string' ? Utilities.newBlob(value).getBytes() : value;
+  return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, '');
+}
+
+function getFirebaseAccessToken_() {
+  var cache = CacheService.getScriptCache();
+  var cachedToken = cache.get('firebase-access-token');
+  if (cachedToken) return cachedToken;
+  var properties = PropertiesService.getScriptProperties();
+  var clientEmail = properties.getProperty('FIREBASE_CLIENT_EMAIL');
+  var privateKey = properties.getProperty('FIREBASE_PRIVATE_KEY');
+  if (!clientEmail || !privateKey) throw new Error('Faltan FIREBASE_CLIENT_EMAIL o FIREBASE_PRIVATE_KEY en Script Properties');
+  privateKey = privateKey.replace(/\\n/g, '\n');
+  var issuedAt = Math.floor(Date.now() / 1000);
+  var header = base64Url_(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  var claim = base64Url_(JSON.stringify({ iss: clientEmail, scope: 'https://www.googleapis.com/auth/firebase.messaging', aud: 'https://oauth2.googleapis.com/token', iat: issuedAt, exp: issuedAt + 3600 }));
+  var unsignedJwt = header + '.' + claim;
+  var signature = base64Url_(Utilities.computeRsaSha256Signature(unsignedJwt, privateKey));
+  var response = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+    method: 'post',
+    contentType: 'application/x-www-form-urlencoded',
+    payload: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: unsignedJwt + '.' + signature },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error('Firebase OAuth: ' + response.getContentText());
+  var accessToken = JSON.parse(response.getContentText()).access_token;
+  cache.put('firebase-access-token', accessToken, 3300);
+  return accessToken;
+}
+
+function sendFcm_(token, notification) {
+  var projectId = PropertiesService.getScriptProperties().getProperty('FIREBASE_PROJECT_ID');
+  if (!projectId) throw new Error('Falta FIREBASE_PROJECT_ID en Script Properties');
+  var response = UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(projectId) + '/messages:send', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + getFirebaseAccessToken_() },
+    payload: JSON.stringify({ message: { token: token, data: { title: String(notification.title), body: String(notification.message), url: String(notification.url || './'), notificationId: String(notification.notificationId), icon: './imagenes/logo-myfamily-trans-ok.png' }, webpush: { headers: { Urgency: 'high' } } } }),
+    muteHttpExceptions: true
+  });
+  return { code: response.getResponseCode(), body: response.getContentText() };
+}
+
+function sendNotification_(notification) {
+  var devices = rows_('dispositivos_push', notification.familyId).filter(function(device) { return (device.active === true || String(device.active).toUpperCase() === 'TRUE') && device.fcmToken; });
+  var result = { notificationId: notification.notificationId, devices: devices.length, sent: 0, failed: 0 };
+  devices.forEach(function(device) {
+    var delivery = { notificationId: notification.notificationId, deviceId: device.deviceId, status: 'queued', attempts: 1, queuedAt: now_(), updatedAt: now_() };
+    try {
+      var response = sendFcm_(device.fcmToken, notification);
+      if (response.code >= 200 && response.code < 300) {
+        delivery.status = 'sent';
+        delivery.sentAt = now_();
+        result.sent++;
+      } else {
+        delivery.status = /UNREGISTERED|registration-token-not-registered/.test(response.body) ? 'invalid_subscription' : 'failed';
+        delivery.lastError = response.body.slice(0, 500);
+        result.failed++;
+        if (delivery.status === 'invalid_subscription') upsert_('dispositivos_push', { deviceId: device.deviceId, familyId: device.familyId, active: false, updatedAt: now_() });
+      }
+    } catch (error) {
+      delivery.status = 'failed';
+      delivery.lastError = String(error.message || error).slice(0, 500);
+      result.failed++;
+    }
+    upsert_('envios_push', delivery);
+  });
+  upsert_('notificaciones', { notificationId: notification.notificationId, familyId: notification.familyId, sentAt: now_(), updatedAt: now_() });
+  return result;
+}
+
+function sendPushToFamily_(familyId, title, message, url, type) {
+  var notification = upsert_('notificaciones', { familyId: familyId, type: type || 'system', title: title, message: message, scheduledAt: now_(), createdAt: now_(), updatedAt: now_() });
+  notification.url = url || './';
+  return sendNotification_(notification);
+}
+
+function sendTestPush() {
+  return sendPushToFamily_(DEFAULT_FAMILY_ID, 'Prueba de My Family', 'Las notificaciones push funcionan correctamente.', './', 'system');
+}
+
+function processScheduledNotifications() {
+  var currentTime = Date.now();
+  return rows_('notificaciones').filter(function(notification) {
+    return notification.scheduledAt && !notification.sentAt && new Date(notification.scheduledAt).getTime() <= currentTime;
+  }).map(sendNotification_);
+}
 
 function ensureFamily_(familyId) {
   var existing = rows_('familias', familyId);
