@@ -46,7 +46,9 @@ function handle_(action, input) {
     if (action === 'settingsUpdate') table = 'ajustes_familia';
     var data = input.data || input;
     data.familyId = familyId;
-    return json_({ ok: true, data: upsert_(table, data), error: null });
+    var saved = upsert_(table, data);
+    if (action === 'eventUpsert') syncEventReminder_(saved);
+    return json_({ ok: true, data: saved, error: null });
   } catch (error) {
     return json_({ ok: false, data: null, error: String(error.message || error) });
   }
@@ -200,7 +202,7 @@ function sendNotification_(notification) {
     }
     upsert_('envios_push', delivery);
   });
-  upsert_('notificaciones', { notificationId: notification.notificationId, familyId: notification.familyId, sentAt: now_(), updatedAt: now_() });
+  if (result.sent > 0) upsert_('notificaciones', { notificationId: notification.notificationId, familyId: notification.familyId, sentAt: now_(), updatedAt: now_() });
   return result;
 }
 
@@ -214,11 +216,124 @@ function sendTestPush() {
   return sendPushToFamily_(DEFAULT_FAMILY_ID, 'Prueba de My Family', 'Las notificaciones push funcionan correctamente.', './', 'system');
 }
 
+function parseEventDate_(value) {
+  var match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  match = String(value || '').match(/^(\d{2})-(\d{2})-(\d{4})/);
+  return match ? { year: Number(match[3]), month: Number(match[2]), day: Number(match[1]) } : null;
+}
+
+function parseEventTime_(value) {
+  var text = String(value || '');
+  var match = text.match(/T(\d{2}):(\d{2})/) || text.match(/^(\d{1,2}):(\d{2})/);
+  return match ? { hour: Number(match[1]), minute: Number(match[2]) } : null;
+}
+
+function dateKey_(date, zone) { return Utilities.formatDate(date, zone, 'yyyy-MM-dd'); }
+
+function eventOccursOn_(event, candidate, zone) {
+  var startParts = parseEventDate_(event.eventDate);
+  if (!startParts) return false;
+  var start = Utilities.parseDate(startParts.year + '-' + ('0' + startParts.month).slice(-2) + '-' + ('0' + startParts.day).slice(-2) + ' 12:00', zone, 'yyyy-MM-dd HH:mm');
+  if (candidate.getTime() < start.getTime()) return false;
+  var frequency = String(event.repeatFrequency || 'none');
+  var days = Math.round((candidate.getTime() - start.getTime()) / 86400000);
+  if (frequency === 'daily') return true;
+  if (frequency === 'weekly') return days % 7 === 0;
+  if (frequency === 'monthly') {
+    var lastDay = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate();
+    return candidate.getDate() === Math.min(startParts.day, lastDay);
+  }
+  if (frequency === 'yearly') return candidate.getMonth() + 1 === startParts.month && candidate.getDate() === startParts.day;
+  return days === 0;
+}
+
+function nextEventOccurrence_(event, currentTime) {
+  var zone = Session.getScriptTimeZone() || 'Europe/Madrid';
+  var time = parseEventTime_(event.eventTime);
+  if (!time) return null;
+  var todayText = Utilities.formatDate(currentTime, zone, 'yyyy-MM-dd');
+  var today = Utilities.parseDate(todayText + ' 12:00', zone, 'yyyy-MM-dd HH:mm');
+  for (var offset = 0; offset <= 370; offset++) {
+    var candidate = new Date(today.getTime() + offset * 86400000);
+    if (!eventOccursOn_(event, candidate, zone)) continue;
+    var occurrenceDate = dateKey_(candidate, zone);
+    var eventAt = Utilities.parseDate(occurrenceDate + ' ' + ('0' + time.hour).slice(-2) + ':' + ('0' + time.minute).slice(-2), zone, 'yyyy-MM-dd HH:mm');
+    if (eventAt.getTime() >= currentTime.getTime()) return { date: occurrenceDate, eventAt: eventAt };
+  }
+  return null;
+}
+
+function expirePendingEventReminders_(event, keepNotificationId) {
+  rows_('notificaciones', event.familyId).filter(function(notification) {
+    return notification.entityType === 'event' && String(notification.entityId) === String(event.eventId) && !notification.sentAt && notification.notificationId !== keepNotificationId;
+  }).forEach(function(notification) {
+    upsert_('notificaciones', { notificationId: notification.notificationId, familyId: event.familyId, expiresAt: now_(), updatedAt: now_() });
+  });
+}
+
+function syncEventReminder_(event, currentTime) {
+  var enabled = event.reminderEnabled === true || String(event.reminderEnabled).toUpperCase() === 'TRUE';
+  if (!enabled || String(event.status) !== 'pending' || event.deletedAt) {
+    expirePendingEventReminders_(event, '');
+    return null;
+  }
+  var occurrence = nextEventOccurrence_(event, currentTime || new Date());
+  if (!occurrence) {
+    expirePendingEventReminders_(event, '');
+    return null;
+  }
+  var notificationId = 'event-reminder-' + event.eventId + '-' + occurrence.date;
+  expirePendingEventReminders_(event, notificationId);
+  var existing = rows_('notificaciones', event.familyId).filter(function(notification) { return String(notification.notificationId) === notificationId; })[0];
+  if (existing && existing.sentAt) return existing;
+  var minutesBefore = Math.max(0, Number(event.reminderMinutesBefore) || 0);
+  var scheduledAt = new Date(occurrence.eventAt.getTime() - minutesBefore * 60000);
+  return upsert_('notificaciones', {
+    notificationId: notificationId,
+    familyId: event.familyId,
+    memberId: event.memberId || '',
+    type: 'event',
+    title: 'Recordatorio: ' + event.name,
+    message: (event.eventTime ? 'A las ' + ('0' + parseEventTime_(event.eventTime).hour).slice(-2) + ':' + ('0' + parseEventTime_(event.eventTime).minute).slice(-2) : 'Evento programado') + (event.place ? ' · ' + event.place : ''),
+    entityType: 'event',
+    entityId: event.eventId,
+    scheduledAt: Utilities.formatDate(scheduledAt, Session.getScriptTimeZone() || 'Europe/Madrid', "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    sentAt: '',
+    updatedAt: now_()
+  });
+}
+
+function syncEventReminders_() {
+  var currentTime = new Date();
+  return rows_('eventos').map(function(event) { return syncEventReminder_(event, currentTime); }).filter(Boolean);
+}
+
 function processScheduledNotifications() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return [];
+  try {
+    syncEventReminders_();
+    return sendDueNotifications_();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function sendDueNotifications_() {
   var currentTime = Date.now();
   return rows_('notificaciones').filter(function(notification) {
-    return notification.scheduledAt && !notification.sentAt && new Date(notification.scheduledAt).getTime() <= currentTime;
+    var active = !notification.expiresAt || new Date(notification.expiresAt).getTime() > currentTime;
+    return active && notification.scheduledAt && !notification.sentAt && new Date(notification.scheduledAt).getTime() <= currentTime;
   }).map(sendNotification_);
+}
+
+function installNotificationTrigger() {
+  ScriptApp.getProjectTriggers().filter(function(trigger) {
+    return trigger.getHandlerFunction() === 'processScheduledNotifications';
+  }).forEach(function(trigger) { ScriptApp.deleteTrigger(trigger); });
+  ScriptApp.newTrigger('processScheduledNotifications').timeBased().everyMinutes(1).create();
+  return 'Activador de notificaciones instalado cada minuto';
 }
 
 function ensureFamily_(familyId) {

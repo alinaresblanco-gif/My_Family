@@ -48,6 +48,6 @@ También se puede hacer un POST a `/exec` con `action: "pushTest"`, `familyId`, 
 
 ## 5. Envíos programados
 
-Crea un activador temporal de Apps Script para `processScheduledNotifications`, por ejemplo cada minuto. La función envía filas de `notificaciones` cuyo `scheduledAt` ya haya llegado y cuyo `sentAt` esté vacío.
+Ejecuta una vez `installNotificationTrigger()` desde el editor de Apps Script. Esta función elimina activadores duplicados de notificaciones y crea uno que ejecuta `processScheduledNotifications` cada minuto. La función envía filas de `notificaciones` cuyo `scheduledAt` ya haya llegado y cuyo `sentAt` esté vacío.
 
-Para generar recordatorios de eventos o documentos todavía hace falta una función que cree esas filas según sus fechas. El transporte FCM y el procesamiento de la cola ya quedan preparados.
+La misma función genera automáticamente los recordatorios de eventos activos según `eventDate`, `eventTime`, `reminderMinutesBefore` y `repeatFrequency`, y evita duplicarlos mediante un identificador formado por evento y fecha de repetición.
