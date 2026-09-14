@@ -173,8 +173,9 @@ function applyRemoteData(data) {
   if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
   if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
   if (data.recipes?.length) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => ({ ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || '' })));
-  if (data.documents?.length) {
-    const remoteDocs = data.documents.map(document => {
+  if (Array.isArray(data.documents)) {
+    const activeDocs = data.documents.filter(doc => !doc.deletedAt);
+    const remoteDocs = activeDocs.map(document => {
       const existingDoc = documents.find(d => String(d.id || d.documentId) === String(document.documentId));
       return {
         ...document,
@@ -186,8 +187,7 @@ function applyRemoteData(data) {
         data: existingDoc?.data || document.data || ''
       };
     });
-    const localOnly = documents.filter(d => d.data && !remoteDocs.some(r => String(r.id) === String(d.id || d.documentId)));
-    documents.splice(0, documents.length, ...remoteDocs, ...localOnly);
+    documents.splice(0, documents.length, ...remoteDocs);
     saveDocuments();
   }
   if (data.notifications?.length) notifications.splice(0, notifications.length, ...data.notifications.map(notification => ({ ...notification, id: notification.notificationId, read: false })));
@@ -222,6 +222,8 @@ async function refreshFromSheets() {
     renderEventMemberOptions(eventForm.elements.member.value);
     renderEvents(getActiveFilter());
     renderMembers();
+    renderDocuments();
+    renderRecipes();
     buildCalendar();
   } finally {
     remoteSyncInProgress = false;
@@ -316,6 +318,28 @@ function closeDocumentDetailModal() {
   modalEl.classList.remove('open');
   modalEl.setAttribute('aria-hidden', 'true');
 }
+async function deleteDocument(doc) {
+  if (!doc) return;
+  const docId = String(doc.id || doc.documentId);
+  const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar el documento "${doc.name}"?`);
+  if (!confirmed) return;
+
+  const idx = documents.findIndex(d => String(d.id || d.documentId) === docId);
+  if (idx >= 0) documents.splice(idx, 1);
+  saveDocuments();
+  renderDocuments();
+
+  const categoryModalEl = document.querySelector('#category-documents-modal');
+  if (categoryModalEl?.classList.contains('open')) {
+    openCategoryDocumentsModal(doc.category);
+  }
+  const detailModalEl = document.querySelector('#document-detail-modal');
+  if (detailModalEl?.classList.contains('open') && currentDetailDocument && String(currentDetailDocument.id || currentDetailDocument.documentId) === docId) {
+    closeDocumentDetailModal();
+  }
+
+  await apiRequest('documentDelete', { entityId: docId, documentId: docId });
+}
 function openCategoryDocumentsModal(category) {
   const modalEl = document.querySelector('#category-documents-modal');
   if (!modalEl) return;
@@ -331,21 +355,28 @@ function openCategoryDocumentsModal(category) {
       const docId = doc.id || doc.documentId;
       const ext = documentExtension(doc.name || '');
       const extClass = ext.toLowerCase() === 'pdf' ? 'pdf' : 'jpg';
-      return `<button class="category-document-item" type="button" data-document-id="${docId}">
+      return `<div class="category-document-item" tabindex="0" role="button" data-document-id="${docId}">
         <span class="file-icon ${extClass}">${ext}</span>
         <div class="category-document-info">
           <strong>${doc.name}</strong>
           <small>Subido: ${formatDocDate(doc.uploadDate)}${doc.expiryDate ? ` · Vence: ${formatDocDate(doc.expiryDate)}` : ''}</small>
         </div>
+        <button class="category-document-delete" type="button" data-delete-id="${docId}" title="Eliminar documento" aria-label="Eliminar documento">🗑</button>
         <b class="category-document-arrow">›</b>
-      </button>`;
+      </div>`;
     }).join('');
-    listElement.querySelectorAll('[data-document-id]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const docId = btn.dataset.documentId;
+    listElement.querySelectorAll('[data-document-id]').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.category-document-delete');
+        const docId = item.dataset.documentId;
         const doc = documents.find(d => String(d.id || d.documentId) === String(docId));
-        if (doc) openDocumentDetailModal(doc);
+        if (!doc) return;
+        if (deleteBtn) {
+          e.stopPropagation();
+          deleteDocument(doc);
+        } else {
+          openDocumentDetailModal(doc);
+        }
       });
     });
   }
@@ -758,6 +789,9 @@ document.querySelectorAll('.document-detail-close').forEach(button => button.add
 document.querySelector('#document-detail-modal')?.addEventListener('click', event => { if (event.target.id === 'document-detail-modal') closeDocumentDetailModal(); });
 document.querySelector('#view-document-file-btn')?.addEventListener('click', async () => {
   if (currentDetailDocument) await openDocumentFile(currentDetailDocument);
+});
+document.querySelector('#delete-document-file-btn')?.addEventListener('click', () => {
+  if (currentDetailDocument) deleteDocument(currentDetailDocument);
 });
 documentFile.addEventListener('change', () => { document.querySelector('#document-file-name').textContent = documentFile.files[0]?.name || 'Ningún archivo seleccionado'; });
 documentForm.addEventListener('submit', event => {
