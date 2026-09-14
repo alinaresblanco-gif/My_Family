@@ -312,13 +312,26 @@ async function checkPublishedVersion() {
     checkForAppUpdate();
   }
 }
+function currentDateKey() {
+  const date = new Date();
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+function notificationDateKey(notification) {
+  const value = notification.scheduledAt || notification.sentAt || notification.createdAt || notification.updatedAt;
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+function todayNotifications() { return notifications.filter(notification => notificationDateKey(notification) === currentDateKey()); }
 function renderNotifications() {
-  const unreadCount = notifications.filter(notification => !notification.read).length;
+  const visibleNotifications = todayNotifications();
+  const unreadCount = visibleNotifications.filter(notification => !notification.read).length;
   const count = document.querySelector('#notification-count');
   if (!settings.notifications) { count.hidden = true; return; }
   count.textContent = unreadCount;
   count.hidden = unreadCount === 0;
-  notificationList.innerHTML = notifications.length ? notifications.map(notification => `<button class="notification-item ${notification.read ? '' : 'unread'}" data-notification-id="${notification.id}"><i class="notification-dot"></i><span><strong>${notification.title}</strong><small>${notification.message}</small></span></button>`).join('') : '<p class="notification-empty">No tienes notificaciones.</p>';
+  notificationList.innerHTML = visibleNotifications.length ? visibleNotifications.map(notification => `<button class="notification-item ${notification.read ? '' : 'unread'}" data-notification-id="${notification.id}"><i class="notification-dot"></i><span><strong>${notification.title}</strong><small>${notification.message}</small></span></button>`).join('') : '<p class="notification-empty">No tienes notificaciones para hoy.</p>';
   notificationList.querySelectorAll('[data-notification-id]').forEach(button => button.addEventListener('click', () => {
     const notification = notifications.find(item => String(item.id) === button.dataset.notificationId);
     if (!notification) return;
@@ -689,7 +702,9 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
   if (button.dataset.calendarView === 'week' && calendarMode === 'month') calendarDate = new Date(today);
   calendarMode = button.dataset.calendarView;
   document.querySelectorAll('[data-calendar-view]').forEach(item => item.classList.toggle('active', item === button));
+  renderNotifications();
   buildCalendar();
+document.querySelector('#mark-all-read').addEventListener('click', () => { todayNotifications().forEach(notification => { notification.read = true; }); saveNotifications(); renderNotifications(); });
 }));
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
