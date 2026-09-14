@@ -383,6 +383,33 @@
       </form>
     </div>
   </div>
+  <div class="modal-backdrop" id="category-documents-modal" aria-hidden="true">
+    <div class="modal category-documents-modal" role="dialog" aria-modal="true" aria-labelledby="category-documents-title">
+      <button class="modal-close category-documents-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">DOCUMENTOS DE LA CATEGORÍA</p>
+      <h2 id="category-documents-title">Categoría</h2>
+      <div class="category-document-list" id="category-document-list"></div>
+      <div class="modal-actions"><button type="button" class="secondary-button category-documents-close">Cerrar</button></div>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="document-detail-modal" aria-hidden="true">
+    <div class="modal document-detail-modal" role="dialog" aria-modal="true" aria-labelledby="document-detail-title">
+      <button class="modal-close document-detail-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">DETALLE DEL DOCUMENTO</p>
+      <h2 id="document-detail-title">Documento</h2>
+      <dl class="document-detail-fields">
+        <div class="document-detail-field"><dt>Categoría</dt><dd id="doc-detail-category">-</dd></div>
+        <div class="document-detail-field"><dt>Fecha de subida</dt><dd id="doc-detail-upload-date">-</dd></div>
+        <div class="document-detail-field"><dt>Fecha de vencimiento</dt><dd id="doc-detail-expiry-date">-</dd></div>
+        <div class="document-detail-field"><dt>Tamaño y tipo</dt><dd id="doc-detail-size-type">-</dd></div>
+        <div class="document-detail-field" id="doc-detail-notes-row"><dt>Notas</dt><dd id="doc-detail-notes">-</dd></div>
+      </dl>
+      <div class="modal-actions">
+        <button type="button" class="secondary-button document-detail-close">Cerrar</button>
+        <button type="button" class="primary-button" id="view-document-file-btn">Ver documento</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-backdrop" id="member-modal" aria-hidden="true">
     <div class="modal member-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
       <button class="modal-close member-modal-close" aria-label="Cerrar">×</button>
@@ -403,7 +430,7 @@
   <script src="firebase-config.js?v=2026.09.13.1"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
-  <script src="app.js?v=2026.09.14.11"></script>
+  <script src="app.js?v=2026.09.14.12"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {

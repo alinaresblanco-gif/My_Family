@@ -41,6 +41,9 @@ const recipes = savedRecipes ? JSON.parse(savedRecipes) : [];
 const documentModal = document.querySelector('#document-modal');
 const documentForm = document.querySelector('#document-form');
 const documentFile = document.querySelector('#document-file');
+const categoryDocumentsModal = document.querySelector('#category-documents-modal');
+const documentDetailModal = document.querySelector('#document-detail-modal');
+let currentDetailDocument = null;
 const savedDocuments = localStorage.getItem('my-family-documents');
 const documents = savedDocuments ? JSON.parse(savedDocuments) : [];
 const DOCUMENT_CAPACITY_BYTES = 100 * 1024 * 1024;
@@ -224,15 +227,142 @@ function renderMemberFilters() {
   filterList.innerHTML = members.length ? [`<button class="member-filter selected" data-filter="todos"><span class="member-dot all">✦</span> Todos</button>`, ...members.map(member => `<button class="member-filter" data-filter="${member.key}">${memberDot(member.key)} ${member.name}</button>`)].join('') : '';
 }
 function openDocumentModal() { documentForm.reset(); documentForm.elements.uploadDate.value = todayInputValue(); document.querySelector('#document-file-name').textContent = 'Ningún archivo seleccionado'; document.querySelector('#document-form-error').textContent = ''; documentModal.classList.add('open'); documentModal.setAttribute('aria-hidden', 'false'); }
-function documentExtension(name) { return name.split('.').pop().toUpperCase().slice(0, 4); }
+function documentExtension(name) { return String(name || '').split('.').pop().toUpperCase().slice(0, 4); }
+function formatBytes(bytes) {
+  const size = Number(bytes) || 0;
+  if (size === 0) return 'Tamaño no indicado';
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  return `${Math.ceil(size / 1024)} KB`;
+}
+function formatDocDate(dateStr) {
+  if (!dateStr) return 'Sin fecha';
+  const clean = String(dateStr).slice(0, 10);
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    const date = new Date(Number(y), Number(m) - 1, Number(d));
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+    }
+  }
+  return dateStr;
+}
+function closeCategoryDocumentsModal() {
+  if (!categoryDocumentsModal) return;
+  categoryDocumentsModal.classList.remove('open');
+  categoryDocumentsModal.setAttribute('aria-hidden', 'true');
+}
+function closeDocumentDetailModal() {
+  if (!documentDetailModal) return;
+  documentDetailModal.classList.remove('open');
+  documentDetailModal.setAttribute('aria-hidden', 'true');
+}
+function openCategoryDocumentsModal(category) {
+  if (!categoryDocumentsModal) return;
+  document.querySelector('#category-documents-title').textContent = category;
+  const listElement = document.querySelector('#category-document-list');
+  const categoryDocs = documents.filter(doc => (doc.category || '').trim().toLowerCase() === category.trim().toLowerCase());
+  if (!categoryDocs.length) {
+    listElement.innerHTML = `<p class="notification-empty">No hay documentos guardados en la categoría "${category}".</p>`;
+  } else {
+    listElement.innerHTML = categoryDocs.map(doc => {
+      const docId = doc.id || doc.documentId;
+      const ext = documentExtension(doc.name || '');
+      const extClass = ext.toLowerCase() === 'pdf' ? 'pdf' : 'jpg';
+      return `<button class="category-document-item" type="button" data-document-id="${docId}">
+        <span class="file-icon ${extClass}">${ext}</span>
+        <div class="category-document-info">
+          <strong>${doc.name}</strong>
+          <small>Subido: ${formatDocDate(doc.uploadDate)}${doc.expiryDate ? ` · Vence: ${formatDocDate(doc.expiryDate)}` : ''}</small>
+        </div>
+        <b class="category-document-arrow">›</b>
+      </button>`;
+    }).join('');
+    listElement.querySelectorAll('[data-document-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const docId = btn.dataset.documentId;
+        const doc = documents.find(d => String(d.id || d.documentId) === String(docId));
+        if (doc) openDocumentDetailModal(doc);
+      });
+    });
+  }
+  categoryDocumentsModal.classList.add('open');
+  categoryDocumentsModal.setAttribute('aria-hidden', 'false');
+}
+function openDocumentDetailModal(doc) {
+  if (!documentDetailModal || !doc) return;
+  currentDetailDocument = doc;
+  document.querySelector('#document-detail-title').textContent = doc.name;
+  document.querySelector('#doc-detail-category').textContent = doc.category || 'Sin categoría';
+  document.querySelector('#doc-detail-upload-date').textContent = formatDocDate(doc.uploadDate);
+  document.querySelector('#doc-detail-expiry-date').textContent = doc.expiryDate ? formatDocDate(doc.expiryDate) : 'Sin fecha de vencimiento';
+  document.querySelector('#doc-detail-size-type').textContent = `${formatBytes(doc.size)} · ${doc.type || documentExtension(doc.name)}`;
+  document.querySelector('#doc-detail-notes').textContent = doc.notes || 'Sin notas adicionales';
+  documentDetailModal.classList.add('open');
+  documentDetailModal.setAttribute('aria-hidden', 'false');
+}
+function openDocumentFile(doc) {
+  if (!doc) return;
+  const src = doc.data || doc.driveUrl || doc.url;
+  if (!src) {
+    alert('El archivo no está disponible para vista previa.');
+    return;
+  }
+  if (src.startsWith('data:image/')) {
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(`<html style="background:#111;height:100%;margin:0;"><head><title>${doc.name}</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100%;"><img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain;"></body></html>`);
+      win.document.close();
+    } else {
+      window.location.href = src;
+    }
+  } else if (src.startsWith('data:')) {
+    try {
+      const parts = src.split(',');
+      const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) u8arr[n] = bstr.charCodeAt(n);
+      const blob = new Blob([u8arr], { type: mime });
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, '_blank');
+      if (!win) {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = doc.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (e) {
+      window.open(src, '_blank');
+    }
+  } else {
+    window.open(src, '_blank', 'noopener');
+  }
+}
 function renderDocuments() {
   const counts = documents.reduce((result, document) => { result[document.category] = (result[document.category] || 0) + 1; return result; }, {});
-  document.querySelectorAll('#folder-grid .folder').forEach(folder => { const category = folder.querySelector('strong').textContent; folder.querySelector('small').textContent = `${counts[category] || 0} documentos`; });
+  document.querySelectorAll('#folder-grid .folder').forEach(folder => {
+    const category = folder.querySelector('strong').textContent.trim();
+    folder.querySelector('small').textContent = `${counts[category] || 0} documentos`;
+    folder.style.cursor = 'pointer';
+    folder.onclick = () => openCategoryDocumentsModal(category);
+  });
   const todayDate = new Date();
   const limitDate = new Date(todayDate);
   limitDate.setDate(limitDate.getDate() + 90);
   const upcoming = documents.filter(document => document.expiryDate && new Date(`${document.expiryDate}T23:59:59`) >= todayDate && new Date(`${document.expiryDate}T23:59:59`) <= limitDate).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
-  document.querySelector('#document-list').innerHTML = upcoming.length ? upcoming.map(document => `<div><span class="file-icon ${documentExtension(document.name).toLowerCase() === 'pdf' ? 'pdf' : 'jpg'}">${documentExtension(document.name)}</span><strong>${document.name}</strong><small>Vence el ${new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${document.expiryDate}T12:00:00`))}</small><b>›</b></div>`).join('') : '<p class="week-empty">No hay documentos próximos a vencer.</p>';
+  document.querySelector('#document-list').innerHTML = upcoming.length ? upcoming.map(document => `<div data-document-id="${document.id || document.documentId}"><span class="file-icon ${documentExtension(document.name).toLowerCase() === 'pdf' ? 'pdf' : 'jpg'}">${documentExtension(document.name)}</span><strong>${document.name}</strong><small>Vence el ${new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${document.expiryDate}T12:00:00`))}</small><b>›</b></div>`).join('') : '<p class="week-empty">No hay documentos próximos a vencer.</p>';
+  document.querySelectorAll('#document-list [data-document-id]').forEach(item => {
+    item.style.cursor = 'pointer';
+    item.addEventListener('click', () => {
+      const docId = item.dataset.documentId;
+      const doc = documents.find(d => String(d.id || d.documentId) === String(docId));
+      if (doc) openDocumentDetailModal(doc);
+    });
+  });
   const usedBytes = documents.reduce((total, document) => total + (Number(document.size) || 0), 0);
   const freeBytes = Math.max(0, DOCUMENT_CAPACITY_BYTES - usedBytes);
   const usedPercent = Math.min(100, (usedBytes / DOCUMENT_CAPACITY_BYTES) * 100);
@@ -541,6 +671,13 @@ document.querySelector('#close-recipe-result').addEventListener('click', () => h
 document.querySelector('#upload-document')?.addEventListener('click', openDocumentModal);
 document.querySelectorAll('.document-modal-close').forEach(button => button.addEventListener('click', closeDocumentModal));
 documentModal.addEventListener('click', event => { if (event.target === documentModal) closeDocumentModal(); });
+document.querySelectorAll('.category-documents-close').forEach(button => button.addEventListener('click', closeCategoryDocumentsModal));
+categoryDocumentsModal?.addEventListener('click', event => { if (event.target === categoryDocumentsModal) closeCategoryDocumentsModal(); });
+document.querySelectorAll('.document-detail-close').forEach(button => button.addEventListener('click', closeDocumentDetailModal));
+documentDetailModal?.addEventListener('click', event => { if (event.target === documentDetailModal) closeDocumentDetailModal(); });
+document.querySelector('#view-document-file-btn')?.addEventListener('click', () => {
+  if (currentDetailDocument) openDocumentFile(currentDetailDocument);
+});
 documentFile.addEventListener('change', () => { document.querySelector('#document-file-name').textContent = documentFile.files[0]?.name || 'Ningún archivo seleccionado'; });
 documentForm.addEventListener('submit', event => {
   event.preventDefault();
@@ -606,7 +743,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeDayEventsModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeMemberModal(); closeReminderModal(); closeRepeatModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeDayEventsModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeCategoryDocumentsModal(); closeDocumentDetailModal(); closeMemberModal(); closeReminderModal(); closeRepeatModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
