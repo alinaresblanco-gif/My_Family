@@ -22,7 +22,6 @@ const reminderModal = document.querySelector('#reminder-modal');
 const repeatModal = document.querySelector('#repeat-modal');
 const reminderLabels = { 0: 'A la hora del Evento', 10: '10 minutos antes', 60: '1 hora antes', 1440: '1 día antes' };
 const repeatLabels = { none: 'No repetir', daily: '1 vez cada día', weekly: '1 vez cada semana', monthly: '1 vez al mes', yearly: '1 vez al año' };
-const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/KIA4bKxmwJoL9ehBJl8Apl?s=cl&p=a&mlu=4&ilr=4';
 let remoteSyncInProgress = false;
 const eventForm = document.querySelector('.event-form');
 const notificationsModal = document.querySelector('#notifications-modal');
@@ -197,16 +196,6 @@ function openReminderModal() {
   reminderModal.classList.add('open'); reminderModal.setAttribute('aria-hidden', 'false');
 }
 function openRepeatModal() { document.querySelectorAll('[name="repeat-choice"]').forEach(option => { option.checked = option.value === (eventForm.elements.repeatFrequency.value || 'none'); }); repeatModal.classList.add('open'); repeatModal.setAttribute('aria-hidden', 'false'); }
-function eventWhatsAppMessage(event) {
-  const member = getMember(event.member).name;
-  const reminder = event.reminderEnabled ? reminderLabels[event.reminderMinutesBefore] || 'Aviso configurado' : 'Aviso desactivado';
-  return [`Nuevo evento familiar`, `Qué: ${event.name}`, `Fecha: ${event.date}`, `Hora: ${event.time}`, `Para: ${member}`, `Lugar: ${event.place}`, `Tipo: ${event.category}`, `Aviso: ${reminder}`, `Repetición: ${repeatLabels[event.repeatFrequency] || repeatLabels.none}`].join('\n');
-}
-function openWhatsAppForEvent(event) {
-  const message = eventWhatsAppMessage(event);
-  navigator.clipboard?.writeText(message).catch(() => {});
-  window.open(WHATSAPP_GROUP_URL, '_blank', 'noopener');
-}
 function todayInputValue() { const date = new Date(); return dateKey(date); }
 function closeDocumentModal() { documentModal.classList.remove('open'); documentModal.setAttribute('aria-hidden', 'true'); }
 const memberModal = document.querySelector('#member-modal');
@@ -519,7 +508,7 @@ eventForm.addEventListener('submit', async event => {
   const existing = events.find(item => item.id === Number(modal.dataset.id));
   const savedEvent = existing || { ...data, id: Date.now(), done: false };
   if (existing) Object.assign(existing, data); else events.push(savedEvent);
-  await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); closeModal(); openWhatsAppForEvent(savedEvent);
+  await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); closeModal();
 });
 document.querySelector('#add-recipe').addEventListener('click', openRecipeModal);
 document.querySelectorAll('.recipe-modal-close').forEach(button => button.addEventListener('click', closeRecipeModal));
