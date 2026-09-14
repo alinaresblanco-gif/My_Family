@@ -411,6 +411,18 @@
       </div>
     </div>
   </div>
+  <div class="modal-backdrop" id="doc-viewer-modal" aria-hidden="true">
+    <div class="modal doc-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="doc-viewer-title">
+      <button class="modal-close doc-viewer-close" aria-label="Cerrar">×</button>
+      <p class="section-kicker">VISTA PREVIA DEL DOCUMENTO</p>
+      <h2 id="doc-viewer-title">Documento</h2>
+      <div class="doc-viewer-body" id="doc-viewer-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-button doc-viewer-close">Cerrar</button>
+        <a class="primary-button" id="doc-viewer-open-btn" target="_blank" rel="noopener">Descargar</a>
+      </div>
+    </div>
+  </div>
   <div class="modal-backdrop" id="member-modal" aria-hidden="true">
     <div class="modal member-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
       <button class="modal-close member-modal-close" aria-label="Cerrar">×</button>
@@ -431,7 +443,7 @@
   <script src="firebase-config.js?v=2026.09.13.1"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
-  <script src="app.js?v=2026.09.14.19"></script>
+  <script src="app.js?v=2026.09.14.20"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {

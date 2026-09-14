@@ -167,7 +167,14 @@ function renderSettings() {
   document.body.dataset.theme = settings.appearance === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : settings.appearance;
 }
 function saveRecipes() { localStorage.setItem('my-family-recipes', JSON.stringify(recipes)); recipes.forEach(recipe => apiRequest('recipeUpsert', { data: recipePayload(recipe) })); }
-function saveDocuments() { localStorage.setItem('my-family-documents', JSON.stringify(documents)); }
+function saveDocuments() {
+  const lightDocs = documents.map(({ data, ...rest }) => rest);
+  try {
+    localStorage.setItem('my-family-documents', JSON.stringify(lightDocs));
+  } catch (e) {
+    console.error('localStorage save error:', e);
+  }
+}
 function saveMembers() { localStorage.setItem('my-family-members', JSON.stringify(members)); members.forEach(member => apiRequest('memberUpsert', { data: memberPayload(member) })); }
 function applyRemoteData(data) {
   if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
@@ -396,6 +403,12 @@ function openDocumentDetailModal(doc) {
   modalEl.classList.add('open');
   modalEl.setAttribute('aria-hidden', 'false');
 }
+function closeDocViewerModal() {
+  const modalEl = document.querySelector('#doc-viewer-modal');
+  if (!modalEl) return;
+  modalEl.classList.remove('open');
+  modalEl.setAttribute('aria-hidden', 'true');
+}
 function dataURLtoBlob(dataurl) {
   try {
     const arr = dataurl.split(',');
@@ -418,6 +431,9 @@ async function openDocumentFile(doc) {
   if (!src && docId) {
     src = await getDocFile(docId);
   }
+  if (!src && doc.data) {
+    src = doc.data;
+  }
   if (!src) {
     alert('El archivo no está disponible para vista previa.');
     return;
@@ -425,15 +441,40 @@ async function openDocumentFile(doc) {
 
   try {
     if (src.startsWith('http://') || src.startsWith('https://')) {
-      window.open(src, '_blank', 'noopener');
+      const win = window.open(src, '_blank', 'noopener,noreferrer');
+      if (!win || win.closed || typeof win.closed === 'undefined') {
+        window.location.href = src;
+      }
       return;
     }
+
+    const nameLower = String(doc.name || '').toLowerCase();
+    const isImage = src.startsWith('data:image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(nameLower);
+
+    if (isImage) {
+      const modalEl = document.querySelector('#doc-viewer-modal');
+      if (modalEl) {
+        document.querySelector('#doc-viewer-title').textContent = doc.name || 'Documento';
+        const bodyEl = document.querySelector('#doc-viewer-body');
+        bodyEl.innerHTML = `<img src="${src}" alt="${doc.name}" style="max-width:100%;max-height:60vh;object-fit:contain;border-radius:8px;display:block;margin:0 auto;">`;
+        const openBtn = document.querySelector('#doc-viewer-open-btn');
+        if (openBtn) {
+          openBtn.href = src;
+          openBtn.download = doc.name || 'imagen';
+          openBtn.textContent = 'Descargar imagen';
+        }
+        modalEl.classList.add('open');
+        modalEl.setAttribute('aria-hidden', 'false');
+        return;
+      }
+    }
+
     if (src.startsWith('data:')) {
       const blob = dataURLtoBlob(src);
       if (!blob) throw new Error('DataURL no válido');
       const blobUrl = URL.createObjectURL(blob);
       const win = window.open(blobUrl, '_blank');
-      if (!win) {
+      if (!win || win.closed || typeof win.closed === 'undefined') {
         const a = document.createElement('a');
         a.href = blobUrl;
         a.download = doc.name || 'documento';
@@ -442,7 +483,10 @@ async function openDocumentFile(doc) {
         document.body.removeChild(a);
       }
     } else {
-      window.open(src, '_blank', 'noopener');
+      const win = window.open(src, '_blank', 'noopener');
+      if (!win || win.closed || typeof win.closed === 'undefined') {
+        window.location.href = src;
+      }
     }
   } catch (err) {
     console.error('Error abriendo documento:', err);
@@ -787,6 +831,8 @@ document.querySelectorAll('.category-documents-close').forEach(button => button.
 document.querySelector('#category-documents-modal')?.addEventListener('click', event => { if (event.target.id === 'category-documents-modal') closeCategoryDocumentsModal(); });
 document.querySelectorAll('.document-detail-close').forEach(button => button.addEventListener('click', closeDocumentDetailModal));
 document.querySelector('#document-detail-modal')?.addEventListener('click', event => { if (event.target.id === 'document-detail-modal') closeDocumentDetailModal(); });
+document.querySelectorAll('.doc-viewer-close').forEach(button => button.addEventListener('click', closeDocViewerModal));
+document.querySelector('#doc-viewer-modal')?.addEventListener('click', event => { if (event.target.id === 'doc-viewer-modal') closeDocViewerModal(); });
 document.querySelector('#view-document-file-btn')?.addEventListener('click', async () => {
   if (currentDetailDocument) await openDocumentFile(currentDetailDocument);
 });
@@ -873,7 +919,7 @@ document.querySelector('#update-app').addEventListener('click', async () => {
   }
   window.location.reload();
 });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeDayEventsModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeCategoryDocumentsModal(); closeDocumentDetailModal(); closeMemberModal(); closeReminderModal(); closeRepeatModal(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeModal(); closeDayEventsModal(); closeNextEventModal(); closeNotificationsModal(); closeRecipeModal(); closeDocumentModal(); closeCategoryDocumentsModal(); closeDocumentDetailModal(); closeDocViewerModal(); closeMemberModal(); closeReminderModal(); closeRepeatModal(); } });
 
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 let calendarMode = 'month';
