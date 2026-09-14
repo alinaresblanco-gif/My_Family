@@ -51,7 +51,7 @@ function handle_(action, input) {
     var saved = upsert_(table, data);
     if (action === 'eventUpsert') syncEventReminder_(saved);
     if (action === 'recipeUpsert' && !wasExisting) sendEntityPush_(saved, 'recipe');
-    if (action === 'documentCreate' && !wasExisting) sendEntityPush_(saved, 'document');
+    if (action === 'documentCreate') sendEntityPush_(saved, 'document');
     return json_({ ok: true, data: saved, error: null });
   } catch (error) {
     return json_({ ok: false, data: null, error: String(error.message || error) });
@@ -226,14 +226,29 @@ function sendPushToFamily_(familyId, title, message, url, type) {
   return sendNotification_(notification);
 }
 
-function sendEntityPush_(entity, entityType) {
+function entityNotification_(entity, entityType) {
   var isRecipe = entityType === 'recipe';
+  var idField = isRecipe ? 'recipeId' : 'documentId';
+  var notificationId = entityType + '-created-' + entity[idField];
   var title = isRecipe ? '🍲 Nueva receta: ' + entity.name : '📄 Nuevo documento: ' + entity.name;
   var detail = isRecipe ? (entity.category || 'Receta familiar') : (entity.category || 'Documento familiar');
-  var idField = isRecipe ? 'recipeId' : 'documentId';
-  var notification = upsert_('notificaciones', { familyId: entity.familyId, type: entityType, title: title, message: detail, entityType: entityType, entityId: entity[idField], scheduledAt: now_(), createdAt: now_(), updatedAt: now_() });
+  return { notificationId: notificationId, title: title, message: detail, idField: idField };
+}
+
+function sendEntityPush_(entity, entityType) {
+  var data = entityNotification_(entity, entityType);
+  var existing = rows_('notificaciones', entity.familyId).filter(function(notification) { return String(notification.notificationId) === data.notificationId; })[0];
+  if (existing && existing.sentAt) return existing;
+  var notification = upsert_('notificaciones', { notificationId: data.notificationId, familyId: entity.familyId, type: entityType, title: data.title, message: data.message, entityType: entityType, entityId: entity[data.idField], scheduledAt: now_(), createdAt: now_(), updatedAt: now_() });
   notification.url = './';
   return sendNotification_(notification);
+}
+
+function sendMissingDocumentNotifications() {
+  return rows_('documentos').filter(function(document) {
+    var data = entityNotification_(document, 'document');
+    return !rows_('notificaciones', document.familyId).some(function(notification) { return String(notification.notificationId) === data.notificationId; });
+  }).map(function(document) { return sendEntityPush_(document, 'document'); });
 }
 
 function sendTestPush() {
