@@ -111,7 +111,7 @@ async function pushApiRequest(action, data = {}) {
 function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
-function documentPayload(document) { return { documentId: String(document.id || Date.now()), familyId: FAMILY_ID, uploadedByMemberId: document.uploadedByMemberId || '', name: document.name || '', mimeType: document.type || '', extension: documentExtension(document.name || ''), sizeBytes: document.size || 0, driveFileId: document.driveFileId || '', driveUrl: document.driveUrl || '', category: document.category || '', uploadDate: document.uploadDate || todayKey, expiryDate: document.expiryDate || '', notes: document.notes || '', createdAt: document.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function documentPayload(document, fileData) { return { documentId: String(document.id || document.documentId || Date.now()), familyId: FAMILY_ID, uploadedByMemberId: document.uploadedByMemberId || '', name: document.name || '', mimeType: document.type || '', extension: documentExtension(document.name || ''), sizeBytes: document.size || 0, driveFileId: document.driveFileId || '', driveUrl: document.driveUrl || '', category: document.category || '', uploadDate: document.uploadDate || todayKey, expiryDate: document.expiryDate || '', notes: document.notes || '', fileData: fileData || document.data || '', createdAt: document.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
 function saveEvents() { return Promise.all(events.map(event => apiRequest('eventUpsert', { data: eventPayload(event) }))); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected')?.dataset.filter || 'todos'; }
@@ -383,16 +383,20 @@ function dataURLtoBlob(dataurl) {
 async function openDocumentFile(doc) {
   if (!doc) return;
   const docId = doc.id || doc.documentId;
-  let src = doc.data || doc.driveUrl || doc.url;
+  let src = doc.driveUrl || doc.url || doc.data;
   if (!src && docId) {
     src = await getDocFile(docId);
   }
   if (!src) {
-    alert('El archivo no está disponible para vista previa en este dispositivo.');
+    alert('El archivo no está disponible para vista previa.');
     return;
   }
 
   try {
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      window.open(src, '_blank', 'noopener');
+      return;
+    }
     if (src.startsWith('data:')) {
       const blob = dataURLtoBlob(src);
       if (!blob) throw new Error('DataURL no válido');
@@ -770,9 +774,15 @@ documentForm.addEventListener('submit', event => {
     documents.push(savedDocument);
     await setDocFile(docId, fileData);
     saveDocuments();
-    apiRequest('documentCreate', { data: documentPayload(savedDocument) });
     renderDocuments();
     closeDocumentModal();
+    const res = await apiRequest('documentCreate', { data: documentPayload(savedDocument, fileData) });
+    if (res?.ok && res.data) {
+      if (res.data.driveUrl) savedDocument.driveUrl = res.data.driveUrl;
+      if (res.data.driveFileId) savedDocument.driveFileId = res.data.driveFileId;
+      saveDocuments();
+      renderDocuments();
+    }
   });
   reader.readAsDataURL(file);
 });

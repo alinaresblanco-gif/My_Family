@@ -48,6 +48,14 @@ function handle_(action, input) {
     var data = input.data || input;
     data.familyId = familyId;
     var wasExisting = exists_(table, data[IDS[table]]);
+    if (action === 'documentCreate' && data.fileData) {
+      var driveResult = saveFileToDrive_(data.name, data.mimeType, data.fileData);
+      if (driveResult.driveUrl) {
+        data.driveUrl = driveResult.driveUrl;
+        data.driveFileId = driveResult.driveFileId;
+      }
+      delete data.fileData;
+    }
     var saved = upsert_(table, data);
     if (action === 'eventUpsert') syncEventReminder_(saved);
     if (action === 'recipeUpsert' && !wasExisting) sendEntityPush_(saved, 'recipe');
@@ -220,6 +228,32 @@ function sendNotification_(notification) {
   return result;
 }
 
+function saveFileToDrive_(fileName, mimeType, base64Content) {
+  try {
+    if (!base64Content) return { driveFileId: '', driveUrl: '' };
+    var folderName = 'My_Family_Documentos';
+    var folders = DriveApp.getFoldersByName(folderName);
+    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    var base64Data = String(base64Content);
+    if (base64Data.indexOf(',') >= 0) {
+      base64Data = base64Data.split(',')[1];
+    }
+    var bytes = Utilities.base64Decode(base64Data);
+    var blob = Utilities.newBlob(bytes, mimeType || 'application/octet-stream', fileName || 'documento');
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return {
+      driveFileId: file.getId(),
+      driveUrl: file.getUrl()
+    };
+  } catch (error) {
+    return { driveFileId: '', driveUrl: '' };
+  }
+}
+
 function sendPushToFamily_(familyId, title, message, url, type) {
   var notification = upsert_('notificaciones', { familyId: familyId, type: type || 'system', title: title, message: message, scheduledAt: now_(), createdAt: now_(), updatedAt: now_() });
   notification.url = url || './';
@@ -240,7 +274,7 @@ function sendEntityPush_(entity, entityType) {
   var existing = rows_('notificaciones', entity.familyId).filter(function(notification) { return String(notification.notificationId) === data.notificationId; })[0];
   if (existing && existing.sentAt) return existing;
   var notification = upsert_('notificaciones', { notificationId: data.notificationId, familyId: entity.familyId, type: entityType, title: data.title, message: data.message, entityType: entityType, entityId: entity[data.idField], scheduledAt: now_(), createdAt: now_(), updatedAt: now_() });
-  notification.url = './';
+  notification.url = entity.driveUrl || './';
   return sendNotification_(notification);
 }
 
