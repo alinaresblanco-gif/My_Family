@@ -129,7 +129,7 @@ function applyRemoteData(data) {
   if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
   if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
   if (data.recipes?.length) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => ({ ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || '' })));
-  if (data.documents?.length) documents.splice(0, documents.length, ...data.documents.map(document => ({ ...document, id: document.documentId, type: document.mimeType, size: document.sizeBytes })));
+  if (data.documents?.length) documents.splice(0, documents.length, ...data.documents.map(document => ({ ...document, id: document.documentId, type: document.mimeType, size: Number(document.sizeBytes) || Number(document.size) || 0 })));
   if (data.notifications?.length) notifications.splice(0, notifications.length, ...data.notifications.map(notification => ({ ...notification, id: notification.notificationId, read: false })));
   if (data.settings) Object.assign(settings, { notifications: data.settings.notificationsEnabled !== false, sync: data.settings.syncEnabled !== false, eventReminders: data.settings.eventRemindersEnabled !== false, documentReminders: data.settings.documentRemindersEnabled !== false, defaultView: data.settings.defaultCalendarView || settings.defaultView, timeFormat: data.settings.timeFormat || settings.timeFormat, appearance: data.settings.appearance || settings.appearance, familyName: data.settings.familyName || settings.familyName, familyAvatar: data.settings.familyAvatar || settings.familyAvatar, pinEnabled: data.settings.pinEnabled === true });
 }
@@ -233,10 +233,11 @@ function renderDocuments() {
   limitDate.setDate(limitDate.getDate() + 90);
   const upcoming = documents.filter(document => document.expiryDate && new Date(`${document.expiryDate}T23:59:59`) >= todayDate && new Date(`${document.expiryDate}T23:59:59`) <= limitDate).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
   document.querySelector('#document-list').innerHTML = upcoming.length ? upcoming.map(document => `<div><span class="file-icon ${documentExtension(document.name).toLowerCase() === 'pdf' ? 'pdf' : 'jpg'}">${documentExtension(document.name)}</span><strong>${document.name}</strong><small>Vence el ${new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${document.expiryDate}T12:00:00`))}</small><b>›</b></div>`).join('') : '<p class="week-empty">No hay documentos próximos a vencer.</p>';
-  const usedBytes = documents.reduce((total, document) => total + (document.size || 0), 0);
+  const usedBytes = documents.reduce((total, document) => total + (Number(document.size) || 0), 0);
+  const freeBytes = Math.max(0, DOCUMENT_CAPACITY_BYTES - usedBytes);
   const usedPercent = Math.min(100, (usedBytes / DOCUMENT_CAPACITY_BYTES) * 100);
-  const formattedBytes = usedBytes >= 1024 * 1024 ? `${(usedBytes / (1024 * 1024)).toFixed(2)} MB` : `${Math.ceil(usedBytes / 1024)} KB`;
-  document.querySelector('#document-storage-text').textContent = `${documents.length} documentos · Google Sheets (pendiente de conexión) · ${formattedBytes} de 100 MB`;
+  const formattedFree = freeBytes >= 1024 * 1024 ? `${(freeBytes / (1024 * 1024)).toFixed(freeBytes % (1024 * 1024) === 0 ? 0 : 2)} MB` : `${Math.ceil(freeBytes / 1024)} KB`;
+  document.querySelector('#document-storage-text').textContent = `${documents.length} documentos · Google Sheets · ${formattedFree} de espacio libre`;
   document.querySelector('#document-storage-bar').style.width = `${usedPercent}%`;
   document.querySelector('#document-storage-percent').textContent = `${usedPercent.toFixed(1)}%`;
 }
