@@ -248,20 +248,25 @@ function formatDocDate(dateStr) {
   return dateStr;
 }
 function closeCategoryDocumentsModal() {
-  if (!categoryDocumentsModal) return;
-  categoryDocumentsModal.classList.remove('open');
-  categoryDocumentsModal.setAttribute('aria-hidden', 'true');
+  const modalEl = document.querySelector('#category-documents-modal');
+  if (!modalEl) return;
+  modalEl.classList.remove('open');
+  modalEl.setAttribute('aria-hidden', 'true');
 }
 function closeDocumentDetailModal() {
-  if (!documentDetailModal) return;
-  documentDetailModal.classList.remove('open');
-  documentDetailModal.setAttribute('aria-hidden', 'true');
+  const modalEl = document.querySelector('#document-detail-modal');
+  if (!modalEl) return;
+  modalEl.classList.remove('open');
+  modalEl.setAttribute('aria-hidden', 'true');
 }
 function openCategoryDocumentsModal(category) {
-  if (!categoryDocumentsModal) return;
-  document.querySelector('#category-documents-title').textContent = category;
+  const modalEl = document.querySelector('#category-documents-modal');
+  if (!modalEl) return;
+  const titleEl = document.querySelector('#category-documents-title');
+  if (titleEl) titleEl.textContent = category;
   const listElement = document.querySelector('#category-document-list');
-  const categoryDocs = documents.filter(doc => (doc.category || '').trim().toLowerCase() === category.trim().toLowerCase());
+  const targetCategory = String(category || '').trim().toLowerCase();
+  const categoryDocs = documents.filter(doc => (doc.category || '').trim().toLowerCase() === targetCategory);
   if (!categoryDocs.length) {
     listElement.innerHTML = `<p class="notification-empty">No hay documentos guardados en la categoría "${category}".</p>`;
   } else {
@@ -279,18 +284,20 @@ function openCategoryDocumentsModal(category) {
       </button>`;
     }).join('');
     listElement.querySelectorAll('[data-document-id]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const docId = btn.dataset.documentId;
         const doc = documents.find(d => String(d.id || d.documentId) === String(docId));
         if (doc) openDocumentDetailModal(doc);
       });
     });
   }
-  categoryDocumentsModal.classList.add('open');
-  categoryDocumentsModal.setAttribute('aria-hidden', 'false');
+  modalEl.classList.add('open');
+  modalEl.setAttribute('aria-hidden', 'false');
 }
 function openDocumentDetailModal(doc) {
-  if (!documentDetailModal || !doc) return;
+  const modalEl = document.querySelector('#document-detail-modal');
+  if (!modalEl || !doc) return;
   currentDetailDocument = doc;
   document.querySelector('#document-detail-title').textContent = doc.name;
   document.querySelector('#doc-detail-category').textContent = doc.category || 'Sin categoría';
@@ -298,8 +305,8 @@ function openDocumentDetailModal(doc) {
   document.querySelector('#doc-detail-expiry-date').textContent = doc.expiryDate ? formatDocDate(doc.expiryDate) : 'Sin fecha de vencimiento';
   document.querySelector('#doc-detail-size-type').textContent = `${formatBytes(doc.size)} · ${doc.type || documentExtension(doc.name)}`;
   document.querySelector('#doc-detail-notes').textContent = doc.notes || 'Sin notas adicionales';
-  documentDetailModal.classList.add('open');
-  documentDetailModal.setAttribute('aria-hidden', 'false');
+  modalEl.classList.add('open');
+  modalEl.setAttribute('aria-hidden', 'false');
 }
 function openDocumentFile(doc) {
   if (!doc) return;
@@ -345,10 +352,8 @@ function openDocumentFile(doc) {
 function renderDocuments() {
   const counts = documents.reduce((result, document) => { result[document.category] = (result[document.category] || 0) + 1; return result; }, {});
   document.querySelectorAll('#folder-grid .folder').forEach(folder => {
-    const category = folder.querySelector('strong').textContent.trim();
+    const category = folder.dataset.category || folder.querySelector('strong').textContent.trim();
     folder.querySelector('small').textContent = `${counts[category] || 0} documentos`;
-    folder.style.cursor = 'pointer';
-    folder.onclick = () => openCategoryDocumentsModal(category);
   });
   const todayDate = new Date();
   const limitDate = new Date(todayDate);
@@ -671,10 +676,17 @@ document.querySelector('#close-recipe-result').addEventListener('click', () => h
 document.querySelector('#upload-document')?.addEventListener('click', openDocumentModal);
 document.querySelectorAll('.document-modal-close').forEach(button => button.addEventListener('click', closeDocumentModal));
 documentModal.addEventListener('click', event => { if (event.target === documentModal) closeDocumentModal(); });
+document.querySelector('#folder-grid')?.addEventListener('click', event => {
+  const folder = event.target.closest('.folder');
+  if (!folder) return;
+  event.preventDefault();
+  const category = folder.dataset.category || folder.querySelector('strong')?.textContent.trim();
+  if (category) openCategoryDocumentsModal(category);
+});
 document.querySelectorAll('.category-documents-close').forEach(button => button.addEventListener('click', closeCategoryDocumentsModal));
-categoryDocumentsModal?.addEventListener('click', event => { if (event.target === categoryDocumentsModal) closeCategoryDocumentsModal(); });
+document.querySelector('#category-documents-modal')?.addEventListener('click', event => { if (event.target.id === 'category-documents-modal') closeCategoryDocumentsModal(); });
 document.querySelectorAll('.document-detail-close').forEach(button => button.addEventListener('click', closeDocumentDetailModal));
-documentDetailModal?.addEventListener('click', event => { if (event.target === documentDetailModal) closeDocumentDetailModal(); });
+document.querySelector('#document-detail-modal')?.addEventListener('click', event => { if (event.target.id === 'document-detail-modal') closeDocumentDetailModal(); });
 document.querySelector('#view-document-file-btn')?.addEventListener('click', () => {
   if (currentDetailDocument) openDocumentFile(currentDetailDocument);
 });
