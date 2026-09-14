@@ -44,6 +44,47 @@ const documentFile = document.querySelector('#document-file');
 const categoryDocumentsModal = document.querySelector('#category-documents-modal');
 const documentDetailModal = document.querySelector('#document-detail-modal');
 let currentDetailDocument = null;
+
+const DB_NAME = 'MyFamilyDB';
+const DB_VERSION = 1;
+function getDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('documentFiles')) {
+        db.createObjectStore('documentFiles');
+      }
+    };
+    request.onsuccess = e => resolve(e.target.result);
+    request.onerror = e => reject(e.target.error);
+  });
+}
+
+function setDocFile(id, fileData) {
+  if (!id || !fileData) return Promise.resolve();
+  return getDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('documentFiles', 'readwrite');
+      tx.objectStore('documentFiles').put(fileData, String(id));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }).catch(e => console.error('IndexedDB put error:', e));
+}
+
+function getDocFile(id) {
+  if (!id) return Promise.resolve(null);
+  return getDB().then(db => {
+    return new Promise((resolve) => {
+      const tx = db.transaction('documentFiles', 'readonly');
+      const req = tx.objectStore('documentFiles').get(String(id));
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  }).catch(() => null);
+}
+
 const savedDocuments = localStorage.getItem('my-family-documents');
 const documents = savedDocuments ? JSON.parse(savedDocuments) : [];
 const DOCUMENT_CAPACITY_BYTES = 100 * 1024 * 1024;
@@ -324,45 +365,53 @@ function openDocumentDetailModal(doc) {
   modalEl.classList.add('open');
   modalEl.setAttribute('aria-hidden', 'false');
 }
-function openDocumentFile(doc) {
+function dataURLtoBlob(dataurl) {
+  try {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  } catch (e) {
+    return null;
+  }
+}
+async function openDocumentFile(doc) {
   if (!doc) return;
-  const src = doc.data || doc.driveUrl || doc.url;
+  const docId = doc.id || doc.documentId;
+  let src = doc.data || doc.driveUrl || doc.url;
+  if (!src && docId) {
+    src = await getDocFile(docId);
+  }
   if (!src) {
-    alert('El archivo no está disponible para vista previa.');
+    alert('El archivo no está disponible para vista previa en este dispositivo.');
     return;
   }
-  if (src.startsWith('data:image/')) {
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(`<html style="background:#111;height:100%;margin:0;"><head><title>${doc.name}</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100%;"><img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain;"></body></html>`);
-      win.document.close();
-    } else {
-      window.location.href = src;
-    }
-  } else if (src.startsWith('data:')) {
-    try {
-      const parts = src.split(',');
-      const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
-      const bstr = atob(parts[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while (n--) u8arr[n] = bstr.charCodeAt(n);
-      const blob = new Blob([u8arr], { type: mime });
+
+  try {
+    if (src.startsWith('data:')) {
+      const blob = dataURLtoBlob(src);
+      if (!blob) throw new Error('DataURL no válido');
       const blobUrl = URL.createObjectURL(blob);
       const win = window.open(blobUrl, '_blank');
       if (!win) {
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = doc.name;
+        a.download = doc.name || 'documento';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
       }
-    } catch (e) {
-      window.open(src, '_blank');
+    } else {
+      window.open(src, '_blank', 'noopener');
     }
-  } else {
-    window.open(src, '_blank', 'noopener');
+  } catch (err) {
+    console.error('Error abriendo documento:', err);
+    alert('No se pudo abrir la vista previa del archivo.');
   }
 }
 function renderDocuments() {
@@ -703,8 +752,8 @@ document.querySelectorAll('.category-documents-close').forEach(button => button.
 document.querySelector('#category-documents-modal')?.addEventListener('click', event => { if (event.target.id === 'category-documents-modal') closeCategoryDocumentsModal(); });
 document.querySelectorAll('.document-detail-close').forEach(button => button.addEventListener('click', closeDocumentDetailModal));
 document.querySelector('#document-detail-modal')?.addEventListener('click', event => { if (event.target.id === 'document-detail-modal') closeDocumentDetailModal(); });
-document.querySelector('#view-document-file-btn')?.addEventListener('click', () => {
-  if (currentDetailDocument) openDocumentFile(currentDetailDocument);
+document.querySelector('#view-document-file-btn')?.addEventListener('click', async () => {
+  if (currentDetailDocument) await openDocumentFile(currentDetailDocument);
 });
 documentFile.addEventListener('change', () => { document.querySelector('#document-file-name').textContent = documentFile.files[0]?.name || 'Ningún archivo seleccionado'; });
 documentForm.addEventListener('submit', event => {
@@ -712,10 +761,19 @@ documentForm.addEventListener('submit', event => {
   if (!documentForm.checkValidity()) { document.querySelector('#document-form-error').textContent = 'Selecciona un archivo y completa la fecha de subida.'; return; }
   const data = Object.fromEntries(new FormData(documentForm));
   const file = documentFile.files[0];
-  const saveDocument = fileData => { const savedDocument = { ...data, id: Date.now(), name: file.name, type: file.type, size: file.size, data: fileData || '' }; documents.push(savedDocument); saveDocuments(); apiRequest('documentCreate', { data: documentPayload(savedDocument) }); renderDocuments(); closeDocumentModal(); };
   if (!file) return;
   const reader = new FileReader();
-  reader.addEventListener('load', () => saveDocument(reader.result));
+  reader.addEventListener('load', async () => {
+    const fileData = reader.result;
+    const docId = Date.now();
+    const savedDocument = { ...data, id: docId, documentId: String(docId), name: file.name, type: file.type, size: file.size, data: fileData || '' };
+    documents.push(savedDocument);
+    await setDocFile(docId, fileData);
+    saveDocuments();
+    apiRequest('documentCreate', { data: documentPayload(savedDocument) });
+    renderDocuments();
+    closeDocumentModal();
+  });
   reader.readAsDataURL(file);
 });
 document.querySelector('#add-member').addEventListener('click', () => openMemberModal());
