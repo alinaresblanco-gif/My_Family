@@ -47,8 +47,11 @@ function handle_(action, input) {
     if (action === 'settingsUpdate') table = 'ajustes_familia';
     var data = input.data || input;
     data.familyId = familyId;
+    var wasExisting = exists_(table, data[IDS[table]]);
     var saved = upsert_(table, data);
     if (action === 'eventUpsert') syncEventReminder_(saved);
+    if (action === 'recipeUpsert' && !wasExisting) sendEntityPush_(saved, 'recipe');
+    if (action === 'documentCreate' && !wasExisting) sendEntityPush_(saved, 'document');
     return json_({ ok: true, data: saved, error: null });
   } catch (error) {
     return json_({ ok: false, data: null, error: String(error.message || error) });
@@ -67,6 +70,16 @@ function sheet_(table) {
 }
 
 function headers_(sheet) { return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String); }
+
+function exists_(table, id) {
+  if (!id) return false;
+  var sheet = sheet_(table);
+  var headers = headers_(sheet);
+  var values = sheet.getDataRange().getValues();
+  var idIndex = headers.indexOf(IDS[table]);
+  for (var i = 1; i < values.length; i++) if (String(values[i][idIndex]) === String(id)) return true;
+  return false;
+}
 
 function rows_(table, familyId) {
   var sheet = sheet_(table);
@@ -210,6 +223,16 @@ function sendNotification_(notification) {
 function sendPushToFamily_(familyId, title, message, url, type) {
   var notification = upsert_('notificaciones', { familyId: familyId, type: type || 'system', title: title, message: message, scheduledAt: now_(), createdAt: now_(), updatedAt: now_() });
   notification.url = url || './';
+  return sendNotification_(notification);
+}
+
+function sendEntityPush_(entity, entityType) {
+  var isRecipe = entityType === 'recipe';
+  var title = isRecipe ? '🍲 Nueva receta: ' + entity.name : '📄 Nuevo documento: ' + entity.name;
+  var detail = isRecipe ? (entity.category || 'Receta familiar') : (entity.category || 'Documento familiar');
+  var idField = isRecipe ? 'recipeId' : 'documentId';
+  var notification = upsert_('notificaciones', { familyId: entity.familyId, type: entityType, title: title, message: detail, entityType: entityType, entityId: entity[idField], scheduledAt: now_(), createdAt: now_(), updatedAt: now_() });
+  notification.url = './';
   return sendNotification_(notification);
 }
 
