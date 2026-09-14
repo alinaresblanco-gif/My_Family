@@ -455,7 +455,6 @@ function showForm(event) {
   if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; }); else eventForm.elements.date.value = todayKey;
   renderEventOptions();
 }
-function openModal(id) { const event = events.find(item => item.id === id); document.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; document.querySelector('#modal-title').textContent = event.name; document.querySelector('.modal-category').textContent = event.category.toUpperCase(); document.querySelector('.modal-member').innerHTML = `<i class="member-dot ${memberColorClasses[event.member]}\"></i> ${memberNames[event.member]}`; document.querySelectorAll('.modal-detail')[0].textContent = `Hoy, lunes 7 de septiembre · ${event.time}`; document.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); const eventDate = new Date(`${event.date}T12:00:00`); const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name; modal.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; modal.querySelector('#modal-title').textContent = event.name; modal.querySelector('.modal-category').textContent = event.category.toUpperCase(); modal.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${memberName}`; modal.querySelectorAll('.modal-detail')[0].textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(eventDate)} · ${event.time}`; modal.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
@@ -706,7 +705,6 @@ document.querySelectorAll('[data-calendar-view]').forEach(button => button.addEv
   document.querySelectorAll('[data-calendar-view]').forEach(item => item.classList.toggle('active', item === button));
   renderNotifications();
   buildCalendar();
-document.querySelector('#mark-all-read').addEventListener('click', () => { todayNotifications().forEach(notification => { notification.read = true; }); saveNotifications(); renderNotifications(); });
 }));
 document.querySelectorAll('.agenda-summary .member-dot').forEach((dot, index) => { dot.className = `member-dot ${['papa', 'mama', 'diego'][index]}`; });
 document.querySelector('#current-date-label').textContent = formatCurrentDate();
