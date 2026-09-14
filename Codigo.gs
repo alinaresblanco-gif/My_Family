@@ -273,13 +273,55 @@ function expirePendingEventReminders_(event, keepNotificationId) {
   });
 }
 
+function slug_(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function eventMemberName_(event) {
+  var memberId = String(event.memberId || '');
+  if (!memberId) return '';
+  var members = rows_('miembros', event.familyId);
+  var member = members.filter(function(item) {
+    return String(item.memberId) === memberId || slug_(item.name) === slug_(memberId);
+  })[0];
+  return member ? String(member.name || '').trim() : memberId;
+}
+
+function eventCategoryLabel_(category) {
+  return String(category || 'Evento').replace(/^\s+|\s+$/g, '');
+}
+
+function reminderWhenLabel_(eventAt, referenceTime, zone) {
+  var eventDate = Utilities.formatDate(eventAt, zone, 'yyyy-MM-dd');
+  var today = Utilities.formatDate(referenceTime, zone, 'yyyy-MM-dd');
+  var tomorrowDate = new Date(referenceTime.getTime() + 86400000);
+  var tomorrow = Utilities.formatDate(tomorrowDate, zone, 'yyyy-MM-dd');
+  var time = Utilities.formatDate(eventAt, zone, 'HH:mm');
+  if (eventDate === today) return 'Hoy a las ' + time;
+  if (eventDate === tomorrow) return 'Mañana a las ' + time;
+  return 'El ' + Utilities.formatDate(eventAt, zone, 'dd-MM-yyyy') + ' a las ' + time;
+}
+
+function eventReminderText_(event, occurrence, currentTime) {
+  var zone = Session.getScriptTimeZone() || 'Europe/Madrid';
+  var details = [reminderWhenLabel_(occurrence.eventAt, currentTime, zone)];
+  if (event.place) details.push(String(event.place).trim());
+  var memberName = eventMemberName_(event);
+  if (memberName) details.push('Para ' + memberName);
+  return {
+    title: eventCategoryLabel_(event.category) + ': ' + event.name,
+    message: details.join(' · ')
+  };
+}
+
 function syncEventReminder_(event, currentTime) {
+  currentTime = currentTime || new Date();
   var enabled = event.reminderEnabled === true || String(event.reminderEnabled).toUpperCase() === 'TRUE';
   if (!enabled || String(event.status) !== 'pending' || event.deletedAt) {
     expirePendingEventReminders_(event, '');
     return null;
   }
-  var occurrence = nextEventOccurrence_(event, currentTime || new Date());
+  var occurrence = nextEventOccurrence_(event, currentTime);
   if (!occurrence) {
     expirePendingEventReminders_(event, '');
     return null;
@@ -290,13 +332,14 @@ function syncEventReminder_(event, currentTime) {
   if (existing && existing.sentAt) return existing;
   var minutesBefore = Math.max(0, Number(event.reminderMinutesBefore) || 0);
   var scheduledAt = new Date(occurrence.eventAt.getTime() - minutesBefore * 60000);
+  var reminderText = eventReminderText_(event, occurrence, currentTime);
   return upsert_('notificaciones', {
     notificationId: notificationId,
     familyId: event.familyId,
     memberId: event.memberId || '',
     type: 'event',
-    title: 'Recordatorio: ' + event.name,
-    message: (event.eventTime ? 'A las ' + ('0' + parseEventTime_(event.eventTime).hour).slice(-2) + ':' + ('0' + parseEventTime_(event.eventTime).minute).slice(-2) : 'Evento programado') + (event.place ? ' · ' + event.place : ''),
+    title: reminderText.title,
+    message: reminderText.message,
     entityType: 'event',
     entityId: event.eventId,
     scheduledAt: Utilities.formatDate(scheduledAt, Session.getScriptTimeZone() || 'Europe/Madrid', "yyyy-MM-dd'T'HH:mm:ssXXX"),
