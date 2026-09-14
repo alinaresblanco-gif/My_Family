@@ -132,7 +132,23 @@ function applyRemoteData(data) {
   if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
   if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
   if (data.recipes?.length) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => ({ ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || '' })));
-  if (data.documents?.length) documents.splice(0, documents.length, ...data.documents.map(document => ({ ...document, id: document.documentId, type: document.mimeType, size: Number(document.sizeBytes) || Number(document.size) || 0 })));
+  if (data.documents?.length) {
+    const remoteDocs = data.documents.map(document => {
+      const existingDoc = documents.find(d => String(d.id || d.documentId) === String(document.documentId));
+      return {
+        ...document,
+        id: document.documentId,
+        type: document.mimeType || existingDoc?.type || '',
+        size: Number(document.sizeBytes) || Number(document.size) || existingDoc?.size || 0,
+        driveUrl: document.driveUrl || existingDoc?.driveUrl || '',
+        driveFileId: document.driveFileId || existingDoc?.driveFileId || '',
+        data: existingDoc?.data || document.data || ''
+      };
+    });
+    const localOnly = documents.filter(d => d.data && !remoteDocs.some(r => String(r.id) === String(d.id || d.documentId)));
+    documents.splice(0, documents.length, ...remoteDocs, ...localOnly);
+    saveDocuments();
+  }
   if (data.notifications?.length) notifications.splice(0, notifications.length, ...data.notifications.map(notification => ({ ...notification, id: notification.notificationId, read: false })));
   if (data.settings) Object.assign(settings, { notifications: data.settings.notificationsEnabled !== false, sync: data.settings.syncEnabled !== false, eventReminders: data.settings.eventRemindersEnabled !== false, documentReminders: data.settings.documentRemindersEnabled !== false, defaultView: data.settings.defaultCalendarView || settings.defaultView, timeFormat: data.settings.timeFormat || settings.timeFormat, appearance: data.settings.appearance || settings.appearance, familyName: data.settings.familyName || settings.familyName, familyAvatar: data.settings.familyAvatar || settings.familyAvatar, pinEnabled: data.settings.pinEnabled === true });
 }
