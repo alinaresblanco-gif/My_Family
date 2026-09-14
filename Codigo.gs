@@ -50,11 +50,14 @@ function handle_(action, input) {
     var wasExisting = exists_(table, data[IDS[table]]);
     if (action === 'documentCreate' && data.fileData) {
       var driveResult = saveFileToDrive_(data.name, data.mimeType, data.fileData);
+      delete data.fileData;
+      if (driveResult.error) {
+        throw new Error('Error al guardar en Google Drive: ' + driveResult.error + '. Para solucionarlo, ejecuta testDrive() en el editor de Apps Script para autorizar el acceso.');
+      }
       if (driveResult.driveUrl) {
         data.driveUrl = driveResult.driveUrl;
         data.driveFileId = driveResult.driveFileId;
       }
-      delete data.fileData;
     }
     var saved = upsert_(table, data);
     if (action === 'eventUpsert') syncEventReminder_(saved);
@@ -228,13 +231,22 @@ function sendNotification_(notification) {
   return result;
 }
 
+function testDrive() {
+  var folderName = 'My_Family_Documentos';
+  var folders = DriveApp.getFoldersByName(folderName);
+  var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+  return 'Permiso de Google Drive OK. ID de carpeta: ' + folder.getId();
+}
+
 function saveFileToDrive_(fileName, mimeType, base64Content) {
   try {
-    if (!base64Content) return { driveFileId: '', driveUrl: '' };
+    if (!base64Content) return { driveFileId: '', driveUrl: '', error: 'Sin contenido de archivo' };
     var folderName = 'My_Family_Documentos';
     var folders = DriveApp.getFoldersByName(folderName);
     var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
-    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    try {
+      folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (e) {}
 
     var base64Data = String(base64Content);
     if (base64Data.indexOf(',') >= 0) {
@@ -243,14 +255,20 @@ function saveFileToDrive_(fileName, mimeType, base64Content) {
     var bytes = Utilities.base64Decode(base64Data);
     var blob = Utilities.newBlob(bytes, mimeType || 'application/octet-stream', fileName || 'documento');
     var file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (e) {}
+
+    var fileId = file.getId();
+    var fileUrl = file.getUrl();
 
     return {
-      driveFileId: file.getId(),
-      driveUrl: file.getUrl()
+      driveFileId: fileId,
+      driveUrl: fileUrl,
+      error: null
     };
   } catch (error) {
-    return { driveFileId: '', driveUrl: '' };
+    return { driveFileId: '', driveUrl: '', error: String(error.message || error) };
   }
 }
 

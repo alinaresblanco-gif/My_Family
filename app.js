@@ -435,16 +435,19 @@ async function openDocumentFile(doc) {
     src = doc.data;
   }
   if (!src) {
-    alert('El archivo no está disponible para vista previa.');
+    alert('El archivo no tiene enlace en Google Drive ni copia en este dispositivo. Para que esté disponible en todos los móviles, vuelve a subir el documento.');
     return;
   }
 
   try {
     if (src.startsWith('http://') || src.startsWith('https://')) {
-      const win = window.open(src, '_blank', 'noopener,noreferrer');
-      if (!win || win.closed || typeof win.closed === 'undefined') {
-        window.location.href = src;
-      }
+      const a = document.createElement('a');
+      a.href = src;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       return;
     }
 
