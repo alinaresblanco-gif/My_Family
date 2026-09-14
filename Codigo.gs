@@ -39,9 +39,10 @@ function handle_(action, input) {
     var table = actionTable_(action);
     if (!table) throw new Error('Accion no soportada: ' + action);
     if (['events', 'recipes', 'documents', 'members', 'settings', 'notifications'].indexOf(action) >= 0) return json_({ ok: true, data: rows_(table, familyId), error: null });
-    if (action === 'eventDelete' || action === 'documentDelete') {
-      var deleteId = String(input.entityId || input.eventId || input.documentId || '');
-      return json_({ ok: true, data: upsert_(table, { [IDS[table]]: deleteId, familyId: familyId, deletedAt: now_(), updatedAt: now_() }), error: null });
+    if (action === 'eventDelete' || action === 'documentDelete' || action === 'recipeDelete') {
+      var deleteId = String(input.entityId || input.eventId || input.documentId || input.recipeId || '');
+      deleteRow_(table, deleteId);
+      return json_({ ok: true, data: { deleted: true, id: deleteId }, error: null });
     }
     if (action === 'notificationRead') return json_({ ok: true, data: upsert_('notificaciones_lecturas', input.data || input), error: null });
     if (action === 'settingsUpdate') table = 'ajustes_familia';
@@ -92,13 +93,65 @@ function exists_(table, id) {
   return false;
 }
 
+function deleteRow_(table, id) {
+  if (!id) return false;
+  var sheet = sheet_(table);
+  var headers = headers_(sheet);
+  var idField = IDS[table];
+  var values = sheet.getDataRange().getValues();
+  var idIndex = headers.indexOf(idField);
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][idIndex]) === String(id)) {
+      var driveFileIdIndex = headers.indexOf('driveFileId');
+      if (driveFileIdIndex >= 0 && values[i][driveFileIdIndex]) {
+        try {
+          var driveFileId = String(values[i][driveFileIdIndex]);
+          if (driveFileId) DriveApp.getFileById(driveFileId).setTrashed(true);
+        } catch (e) {}
+      }
+      sheet.deleteRow(i + 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+function cleanDeletedRows() {
+  Object.keys(TABLES).forEach(function(tableKey) {
+    var table = TABLES[tableKey];
+    var sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(table);
+    if (!sheet) return;
+    var values = sheet.getDataRange().getValues();
+    if (values.length < 2) return;
+    var headers = values[0].map(String);
+    var deletedIndex = headers.indexOf('deletedAt');
+    var driveFileIdIndex = headers.indexOf('driveFileId');
+    if (deletedIndex < 0) return;
+    for (var i = values.length - 1; i >= 1; i--) {
+      if (values[i][deletedIndex]) {
+        if (driveFileIdIndex >= 0 && values[i][driveFileIdIndex]) {
+          try {
+            DriveApp.getFileById(String(values[i][driveFileIdIndex])).setTrashed(true);
+          } catch (e) {}
+        }
+        sheet.deleteRow(i + 1);
+      }
+    }
+  });
+  return 'Filas eliminadas limpiadas';
+}
+
 function rows_(table, familyId) {
   var sheet = sheet_(table);
   var values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
   var headers = values.shift().map(String);
+  var familyIndex = headers.indexOf('familyId');
+  var deletedIndex = headers.indexOf('deletedAt');
   return values.filter(function(row) {
-    return !familyId || String(row[headers.indexOf('familyId')]) === String(familyId);
+    var matchFamily = !familyId || String(row[familyIndex]) === String(familyId);
+    var notDeleted = deletedIndex < 0 || !row[deletedIndex];
+    return matchFamily && notDeleted;
   }).map(function(row) {
     var item = {};
     headers.forEach(function(header, index) { item[header] = format_(header, row[index]); });
@@ -149,7 +202,8 @@ function ensureSchema_() {
 
 function migrateSchema() {
   ensureSchema_();
-  return 'Esquema actualizado';
+  cleanDeletedRows();
+  return 'Esquema actualizado y filas eliminadas limpiadas';
 }
 
 function now_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', "yyyy-MM-dd'T'HH:mm:ssXXX"); }

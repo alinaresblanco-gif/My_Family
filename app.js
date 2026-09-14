@@ -346,6 +346,7 @@ async function deleteDocument(doc) {
   }
 
   await apiRequest('documentDelete', { entityId: docId, documentId: docId });
+  await refreshFromSheets();
 }
 function openCategoryDocumentsModal(category) {
   const modalEl = document.querySelector('#category-documents-modal');
