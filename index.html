@@ -194,6 +194,11 @@
     @media (max-width: 800px) { #view-agenda .calendar-toolbar .view-switch { position: static; flex-basis: 100%; justify-content: center; margin-top: 8px; } }
     @media (max-width: 600px) { .week-day { grid-template-columns: 78px 1fr; column-gap: 10px; padding: 10px; } .week-event { display: grid; } }
     @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; gap: 0; } }
+    .recipe-card { align-content: start; min-width: 0; }
+    .recipe-card .recipe-art { width: 100%; height: 110px; min-height: 110px; overflow: hidden; margin-bottom: 4px; }
+    .recipe-card .recipe-card-image { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .recipe-card > strong, .recipe-card > small { position: static; display: block; min-height: 16px; line-height: 1.25; }
+    .recipe-card .recipe-card-actions { position: static; display: flex; gap: 6px; margin-top: 4px; min-height: 30px; }
   </style>
 </head>
 <body>
@@ -443,7 +448,7 @@
   <script src="firebase-config.js?v=2026.09.13.1"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
-  <script src="app.js?v=2026.09.15.5"></script>
+  <script src="app.js?v=2026.09.15.8"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
