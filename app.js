@@ -111,6 +111,10 @@ async function pushApiRequest(action, data = {}) {
 function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe, imageData) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: recipe.coverFileId || '', coverUrl: recipe.coverUrl || '', imageData: imageData || recipe.image || '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function recipeImageUrl(recipe) {
+  if (recipe.coverFileId) return `https://drive.google.com/thumbnail?id=${encodeURIComponent(recipe.coverFileId)}&sz=w1200`;
+  return recipe.coverUrl || recipe.image || '';
+}
 function documentPayload(document, fileData) { return { documentId: String(document.id || document.documentId || Date.now()), familyId: FAMILY_ID, uploadedByMemberId: document.uploadedByMemberId || '', name: document.name || '', mimeType: document.type || '', extension: documentExtension(document.name || ''), sizeBytes: document.size || 0, driveFileId: document.driveFileId || '', driveUrl: document.driveUrl || '', category: document.category || '', uploadDate: document.uploadDate || todayKey, expiryDate: document.expiryDate || '', notes: document.notes || '', fileData: fileData || document.data || '', createdAt: document.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
 function saveEvents() { return Promise.all(events.map(event => apiRequest('eventUpsert', { data: eventPayload(event) }))); }
@@ -179,7 +183,7 @@ function saveMembers() { localStorage.setItem('my-family-members', JSON.stringif
 function applyRemoteData(data) {
   if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
   if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
-  if (Array.isArray(data.recipes)) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => { const existingRecipe = recipes.find(r => String(r.id || r.recipeId) === String(recipe.recipeId)); return { ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || existingRecipe?.image || '' }; }));
+  if (Array.isArray(data.recipes)) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => { const existingRecipe = recipes.find(r => String(r.id || r.recipeId) === String(recipe.recipeId)); return { ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipeImageUrl(recipe) || existingRecipe?.image || '' }; }));
   if (Array.isArray(data.documents)) {
     const activeDocs = data.documents.filter(doc => !doc.deletedAt);
     const remoteDocs = activeDocs.map(document => {
@@ -570,7 +574,7 @@ function showRecipeResult(match) {
   document.querySelector('#recipe-result-ingredients').textContent = match.ingredients;
   document.querySelector('#recipe-result-steps').textContent = match.steps;
   const image = document.querySelector('#recipe-result-image');
-  image.innerHTML = match.image ? `<img src="${match.image}" alt="${match.name}">` : recipeIcon(match.category);
+  image.innerHTML = recipeImageUrl(match) ? `<img src="${recipeImageUrl(match)}" alt="${match.name}">` : recipeIcon(match.category);
   resultPanel.hidden = false;
 }
 function renderRecipeResult(search) {
@@ -598,7 +602,8 @@ function renderRecipes(search = '') {
       card.dataset.recipeName = recipe.name;
       const editable = recipes.some(item => String(item.id) === String(recipe.id));
       card.classList.toggle('recipe-card-editable', editable);
-      card.innerHTML = `${recipe.image ? `<div class="recipe-art"><img class="recipe-card-image" src="${recipe.image}" alt="${recipe.name}"></div>` : `<div class="recipe-art">${recipeIcon(recipe.category)}</div>`}<strong>${recipe.name}</strong><small>${recipe.category} · ${recipe.time}</small><small>🧂 ${recipe.ingredients.split(/\r?\n/).filter(Boolean).length} ingredientes</small>${editable ? '<div class="recipe-card-actions"><button type="button" class="recipe-edit-button" title="Editar receta" aria-label="Editar receta">✎</button><button type="button" class="recipe-delete-button" title="Eliminar receta" aria-label="Eliminar receta">🗑</button></div>' : ''}`;
+      const imageUrl = recipeImageUrl(recipe);
+      card.innerHTML = `${imageUrl ? `<div class="recipe-art"><img class="recipe-card-image" src="${imageUrl}" alt="${recipe.name}"></div>` : `<div class="recipe-art">${recipeIcon(recipe.category)}</div>`}<strong>${recipe.name}</strong><small>${recipe.category} · ${recipe.time}</small><small>🧂 ${recipe.ingredients.split(/\r?\n/).filter(Boolean).length} ingredientes</small>${editable ? '<div class="recipe-card-actions"><button type="button" class="recipe-edit-button" title="Editar receta" aria-label="Editar receta">✎</button><button type="button" class="recipe-delete-button" title="Eliminar receta" aria-label="Eliminar receta">🗑</button></div>' : ''}`;
       gridElement.appendChild(card);
     });
   });
