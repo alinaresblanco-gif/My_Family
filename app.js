@@ -92,7 +92,6 @@ const defaultMembers = [];
 const savedMembers = localStorage.getItem('my-family-members');
 const members = savedMembers ? JSON.parse(savedMembers) : defaultMembers;
 members.forEach(member => { if (!member.key) member.key = member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'); });
-const builtInRecipes = [];
 
 function apiRequest(action, data = {}) {
   if (!settings.sync || !SHEETS_API_URL) return Promise.resolve(null);
@@ -586,7 +585,7 @@ function showRecipeResult(match) {
 function renderRecipeResult(search) {
   const query = search.trim().toLowerCase();
   if (!query) { hideRecipeResult(); return; }
-  const match = [...recipes, ...builtInRecipes].find(recipe => `${recipe.name} ${recipe.ingredients} ${recipe.category}`.toLowerCase().includes(query));
+  const match = recipes.find(recipe => `${recipe.name} ${recipe.ingredients} ${recipe.category}`.toLowerCase().includes(query));
   if (!match) { hideRecipeResult(); return; }
   showRecipeResult(match);
 }
@@ -595,7 +594,7 @@ function renderRecipes(search = '') {
   const visible = recipes.filter(recipe => `${recipe.name} ${recipe.ingredients} ${recipe.category}`.toLowerCase().includes(query));
   const gridElement = document.querySelector('#recipe-grid');
   gridElement.innerHTML = '';
-  const groups = [...builtInRecipes, ...visible].reduce((grouped, recipe) => { (grouped[recipe.category] ||= []).push(recipe); return grouped; }, {});
+  const groups = visible.reduce((grouped, recipe) => { (grouped[recipe.category] ||= []).push(recipe); return grouped; }, {});
   Object.entries(groups).forEach(([category, categoryRecipes]) => {
     const heading = document.createElement('h3');
     heading.className = 'recipe-category-heading';
@@ -613,9 +612,10 @@ function renderRecipes(search = '') {
       gridElement.appendChild(card);
     });
   });
-  document.querySelector('#recipe-count').textContent = `${6 + recipes.length} recetas guardadas`;
+  const recipeCount = recipes.length;
+  document.querySelector('#recipe-count').textContent = `${recipeCount} ${recipeCount === 1 ? 'receta' : 'recetas'} guardada${recipeCount === 1 ? '' : 's'}`;
   gridElement.querySelectorAll('.recipe-card').forEach(card => card.addEventListener('click', event => {
-    const match = [...recipes, ...builtInRecipes].find(recipe => recipe.id === Number(card.dataset.recipeId) || recipe.name === card.dataset.recipeName);
+    const match = recipes.find(recipe => recipe.id === Number(card.dataset.recipeId) || recipe.name === card.dataset.recipeName);
     if (!match) return;
     if (event.target.closest('.recipe-edit-button')) { event.stopPropagation(); openRecipeModal(match); return; }
     if (event.target.closest('.recipe-delete-button')) { event.stopPropagation(); deleteRecipe(match); return; }
