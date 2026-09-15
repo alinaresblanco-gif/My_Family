@@ -1,5 +1,5 @@
 const FALLBACK_APP_VERSION = '2026.09.09.2';
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbweH5pO2Qtk9Pat1QBdM88qzeYHM-1jrocfUbrRKIRUfdbVvAHts11aSMVQsnTgx9UC/exec';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbz_qubw1Mk9uPBuZbATR14bi13gobeOE6SB_C4FtTNzsrNiq2KQ2QcRZpk23comIYg/exec';
 const FAMILY_ID = 'family-my-family';
 const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
 let currentAppVersion = null;
@@ -532,7 +532,31 @@ function readRecipeImage(file) {
   reader.addEventListener('load', () => { recipeForm.dataset.image = reader.result; recipeImagePreview.innerHTML = `<img src="${reader.result}" alt="Vista previa de la receta">`; });
   reader.readAsDataURL(file);
 }
-function openRecipeModal() { recipeForm.reset(); recipeForm.dataset.image = ''; resetRecipeImage(); document.querySelector('#recipe-form-error').textContent = ''; recipeModal.classList.add('open'); recipeModal.setAttribute('aria-hidden', 'false'); }
+function openRecipeModal(recipe = null) {
+  recipeForm.reset();
+  recipeForm.dataset.id = recipe ? String(recipe.id || recipe.recipeId) : '';
+  recipeForm.dataset.image = recipe?.image || '';
+  recipeForm.dataset.coverUrl = recipe?.coverUrl || '';
+  resetRecipeImage();
+  if (recipe) {
+    ['name', 'category', 'time', 'servings', 'ingredients', 'steps'].forEach(field => { if (recipeForm.elements[field]) recipeForm.elements[field].value = recipe[field] || ''; });
+    if (recipe.image) recipeImagePreview.innerHTML = `<img src="${recipe.image}" alt="Vista previa de la receta">`;
+  }
+  document.querySelector('#recipe-modal-title').textContent = recipe ? 'Editar receta' : 'Nueva receta';
+  document.querySelector('#recipe-form-error').textContent = '';
+  recipeModal.classList.add('open'); recipeModal.setAttribute('aria-hidden', 'false');
+}
+async function deleteRecipe(recipe) {
+  const recipeId = String(recipe.id || recipe.recipeId);
+  if (!window.confirm(`¿Estás seguro de que deseas eliminar la receta "${recipe.name}"?`)) return;
+  const index = recipes.findIndex(item => String(item.id || item.recipeId) === recipeId);
+  if (index >= 0) recipes.splice(index, 1);
+  localStorage.setItem('my-family-recipes', JSON.stringify(recipes));
+  renderRecipes(document.querySelector('#recipe-search').value);
+  hideRecipeResult(true);
+  await apiRequest('recipeDelete', { entityId: recipeId, recipeId: recipeId });
+  await refreshFromSheets();
+}
 function recipeIcon(category) { return { Postres: '🍰', Saludables: '🥗', Rápidos: '🍳', Favoritas: '⭐' }[category] || '🍲'; }
 function hideRecipeResult(clearSearch = false) {
   document.querySelector('#recipe-search-result').hidden = true;
@@ -572,14 +596,19 @@ function renderRecipes(search = '') {
       card.className = 'recipe-card';
       card.dataset.recipeId = recipe.id || '';
       card.dataset.recipeName = recipe.name;
-      card.innerHTML = `${recipe.image ? `<div class="recipe-art"><img class="recipe-card-image" src="${recipe.image}" alt="${recipe.name}"></div>` : `<div class="recipe-art">${recipeIcon(recipe.category)}</div>`}<strong>${recipe.name}</strong><small>${recipe.category} · ${recipe.time}</small><small>🧂 ${recipe.ingredients.split(/\r?\n/).filter(Boolean).length} ingredientes</small>`;
+      const editable = recipes.some(item => String(item.id) === String(recipe.id));
+      card.classList.toggle('recipe-card-editable', editable);
+      card.innerHTML = `${recipe.image ? `<div class="recipe-art"><img class="recipe-card-image" src="${recipe.image}" alt="${recipe.name}"></div>` : `<div class="recipe-art">${recipeIcon(recipe.category)}</div>`}<strong>${recipe.name}</strong><small>${recipe.category} · ${recipe.time}</small><small>🧂 ${recipe.ingredients.split(/\r?\n/).filter(Boolean).length} ingredientes</small>${editable ? '<div class="recipe-card-actions"><button type="button" class="recipe-edit-button" title="Editar receta" aria-label="Editar receta">✎</button><button type="button" class="recipe-delete-button" title="Eliminar receta" aria-label="Eliminar receta">🗑</button></div>' : ''}`;
       gridElement.appendChild(card);
     });
   });
   document.querySelector('#recipe-count').textContent = `${6 + recipes.length} recetas guardadas`;
-  gridElement.querySelectorAll('.recipe-card').forEach(card => card.addEventListener('click', () => {
+  gridElement.querySelectorAll('.recipe-card').forEach(card => card.addEventListener('click', event => {
     const match = [...recipes, ...builtInRecipes].find(recipe => recipe.id === Number(card.dataset.recipeId) || recipe.name === card.dataset.recipeName);
-    if (match) showRecipeResult(match);
+    if (!match) return;
+    if (event.target.closest('.recipe-edit-button')) { event.stopPropagation(); openRecipeModal(match); return; }
+    if (event.target.closest('.recipe-delete-button')) { event.stopPropagation(); deleteRecipe(match); return; }
+    showRecipeResult(match);
   }));
 }
 function showUpdateModal() { updateModal.classList.add('open'); updateModal.setAttribute('aria-hidden', 'false'); }
@@ -816,8 +845,9 @@ recipeForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!recipeForm.checkValidity()) { document.querySelector('#recipe-form-error').textContent = 'Completa el nombre, los ingredientes y la elaboración.'; return; }
   const data = Object.fromEntries(new FormData(recipeForm));
-  const savedRecipe = { ...data, id: Date.now(), image: recipeForm.dataset.image || '' };
-  recipes.push(savedRecipe);
+  const existing = recipes.find(recipe => String(recipe.id || recipe.recipeId) === String(recipeForm.dataset.id || ''));
+  const savedRecipe = existing ? Object.assign(existing, { ...data, image: recipeForm.dataset.image || existing.image || '', coverUrl: recipeForm.dataset.coverUrl || existing.coverUrl || '' }) : { ...data, id: Date.now(), image: recipeForm.dataset.image || '' };
+  if (!existing) recipes.push(savedRecipe);
   const response = await apiRequest('recipeUpsert', { data: recipePayload(savedRecipe, savedRecipe.image) });
   if (response?.ok && response.data) Object.assign(savedRecipe, { coverUrl: response.data.coverUrl || '', coverFileId: response.data.coverFileId || '' });
   localStorage.setItem('my-family-recipes', JSON.stringify(recipes));

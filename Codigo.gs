@@ -83,7 +83,7 @@ function handle_(action, input) {
 }
 
 function actionTable_(action) {
-  var map = { events: 'eventos', eventUpsert: 'eventos', eventDelete: 'eventos', recipes: 'recetas', recipeUpsert: 'recetas', documents: 'documentos', documentCreate: 'documentos', documentDelete: 'documentos', members: 'miembros', memberUpsert: 'miembros', settings: 'ajustes_familia', settingsUpdate: 'ajustes_familia', notifications: 'notificaciones' };
+  var map = { events: 'eventos', eventUpsert: 'eventos', eventDelete: 'eventos', recipes: 'recetas', recipeUpsert: 'recetas', recipeDelete: 'recetas', documents: 'documentos', documentCreate: 'documentos', documentDelete: 'documentos', members: 'miembros', memberUpsert: 'miembros', settings: 'ajustes_familia', settingsUpdate: 'ajustes_familia', notifications: 'notificaciones' };
   return map[action] || null;
 }
 
