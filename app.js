@@ -562,6 +562,12 @@ async function deleteRecipe(recipe) {
   await refreshFromSheets();
 }
 function recipeIcon(category) { return { Postres: '🍰', Saludables: '🥗', Rápidos: '🍳', Favoritas: '⭐' }[category] || '🍲'; }
+function formatRecipeTime(value) {
+  const minutes = Number.parseFloat(String(value || '').replace(',', '.')) || 0;
+  if (!minutes) return 'Sin tiempo';
+  const hours = Math.round((minutes / 60) * 10) / 10;
+  return `${String(hours).replace('.', ',')} h`;
+}
 function hideRecipeResult(clearSearch = false) {
   document.querySelector('#recipe-search-result').hidden = true;
   if (clearSearch) document.querySelector('#recipe-search').value = '';
@@ -570,7 +576,7 @@ function showRecipeResult(match) {
   const resultPanel = document.querySelector('#recipe-search-result');
   document.querySelector('#recipe-result-name').textContent = match.name;
   document.querySelector('#recipe-result-description').textContent = match.description || `Receta familiar de la categoría ${match.category}.`;
-  document.querySelector('#recipe-result-meta').innerHTML = `<span>◷ ${match.time || 'Sin tiempo'}</span><span>♨ ${match.category}</span>${match.servings ? `<span>♟ ${match.servings}</span>` : ''}`;
+  document.querySelector('#recipe-result-meta').innerHTML = `<span>◷ ${formatRecipeTime(match.time)}</span><span>♨ ${match.category}</span>${match.servings ? `<span>♟ ${match.servings}</span>` : ''}`;
   document.querySelector('#recipe-result-ingredients').textContent = match.ingredients;
   document.querySelector('#recipe-result-steps').textContent = match.steps;
   const image = document.querySelector('#recipe-result-image');
@@ -603,7 +609,7 @@ function renderRecipes(search = '') {
       const editable = recipes.some(item => String(item.id) === String(recipe.id));
       card.classList.toggle('recipe-card-editable', editable);
       const imageUrl = recipeImageUrl(recipe);
-      card.innerHTML = `${imageUrl ? `<div class="recipe-art"><img class="recipe-card-image" src="${imageUrl}" alt="${recipe.name}"></div>` : `<div class="recipe-art">${recipeIcon(recipe.category)}</div>`}<strong>${recipe.name}</strong><small>${recipe.category} · ${recipe.time}</small><small>🧂 ${recipe.ingredients.split(/\r?\n/).filter(Boolean).length} ingredientes</small>${editable ? '<div class="recipe-card-actions"><button type="button" class="recipe-edit-button" title="Editar receta" aria-label="Editar receta">✎</button><button type="button" class="recipe-delete-button" title="Eliminar receta" aria-label="Eliminar receta">🗑</button></div>' : ''}`;
+      card.innerHTML = `${imageUrl ? `<div class="recipe-art"><img class="recipe-card-image" src="${imageUrl}" alt="${recipe.name}"></div>` : `<div class="recipe-art">${recipeIcon(recipe.category)}</div>`}<strong>${recipe.name}</strong><small>${recipe.category} · ${formatRecipeTime(recipe.time)}</small><small>🧂 ${recipe.ingredients.split(/\r?\n/).filter(Boolean).length} ingredientes</small>${editable ? '<div class="recipe-card-actions"><button type="button" class="recipe-edit-button" title="Editar receta" aria-label="Editar receta">✎</button><button type="button" class="recipe-delete-button" title="Eliminar receta" aria-label="Eliminar receta">🗑</button></div>' : ''}`;
       gridElement.appendChild(card);
     });
   });
