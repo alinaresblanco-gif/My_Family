@@ -1,5 +1,5 @@
 const FALLBACK_APP_VERSION = '2026.09.09.2';
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbwQFoU2l8uLMTP67c8Wh3a-YpRNjjyTWTB_TzDj0Fg9XIdyD3vxlbL0_LXKmh-CpSSo/exec';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbweH5pO2Qtk9Pat1QBdM88qzeYHM-1jrocfUbrRKIRUfdbVvAHts11aSMVQsnTgx9UC/exec';
 const FAMILY_ID = 'family-my-family';
 const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
 let currentAppVersion = null;
@@ -110,7 +110,7 @@ async function pushApiRequest(action, data = {}) {
 }
 function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
-function recipePayload(recipe) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: '', coverUrl: '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function recipePayload(recipe, imageData) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: recipe.coverFileId || '', coverUrl: recipe.coverUrl || '', imageData: imageData || recipe.image || '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function documentPayload(document, fileData) { return { documentId: String(document.id || document.documentId || Date.now()), familyId: FAMILY_ID, uploadedByMemberId: document.uploadedByMemberId || '', name: document.name || '', mimeType: document.type || '', extension: documentExtension(document.name || ''), sizeBytes: document.size || 0, driveFileId: document.driveFileId || '', driveUrl: document.driveUrl || '', category: document.category || '', uploadDate: document.uploadDate || todayKey, expiryDate: document.expiryDate || '', notes: document.notes || '', fileData: fileData || document.data || '', createdAt: document.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
 function saveEvents() { return Promise.all(events.map(event => apiRequest('eventUpsert', { data: eventPayload(event) }))); }
@@ -179,7 +179,7 @@ function saveMembers() { localStorage.setItem('my-family-members', JSON.stringif
 function applyRemoteData(data) {
   if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
   if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
-  if (data.recipes?.length) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => ({ ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || '' })));
+  if (Array.isArray(data.recipes)) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => { const existingRecipe = recipes.find(r => String(r.id || r.recipeId) === String(recipe.recipeId)); return { ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipe.coverUrl || existingRecipe?.image || '' }; }));
   if (Array.isArray(data.documents)) {
     const activeDocs = data.documents.filter(doc => !doc.deletedAt);
     const remoteDocs = activeDocs.map(document => {
@@ -812,12 +812,16 @@ document.querySelectorAll('.recipe-modal-close').forEach(button => button.addEve
 recipeModal.addEventListener('click', event => { if (event.target === recipeModal) closeRecipeModal(); });
 recipeImageInputs.forEach(input => input.addEventListener('change', event => readRecipeImage(event.target.files[0])));
 document.querySelector('#remove-recipe-image').addEventListener('click', resetRecipeImage);
-recipeForm.addEventListener('submit', event => {
+recipeForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!recipeForm.checkValidity()) { document.querySelector('#recipe-form-error').textContent = 'Completa el nombre, los ingredientes y la elaboración.'; return; }
   const data = Object.fromEntries(new FormData(recipeForm));
-  recipes.push({ ...data, id: Date.now(), image: recipeForm.dataset.image || '' });
-  saveRecipes(); renderRecipes(document.querySelector('#recipe-search').value); closeRecipeModal();
+  const savedRecipe = { ...data, id: Date.now(), image: recipeForm.dataset.image || '' };
+  recipes.push(savedRecipe);
+  const response = await apiRequest('recipeUpsert', { data: recipePayload(savedRecipe, savedRecipe.image) });
+  if (response?.ok && response.data) Object.assign(savedRecipe, { coverUrl: response.data.coverUrl || '', coverFileId: response.data.coverFileId || '' });
+  localStorage.setItem('my-family-recipes', JSON.stringify(recipes));
+  renderRecipes(document.querySelector('#recipe-search').value); closeRecipeModal();
 });
 document.querySelector('#recipe-search').addEventListener('input', event => { renderRecipes(event.target.value); renderRecipeResult(event.target.value); });
 document.querySelector('#close-recipe-result').addEventListener('click', () => hideRecipeResult(true));

@@ -60,6 +60,18 @@ function handle_(action, input) {
         data.driveFileId = driveResult.driveFileId;
       }
     }
+    if (action === 'recipeUpsert' && data.imageData) {
+      var imageMimeMatch = String(data.imageData).match(/^data:([^;]+);/);
+      var imageMime = imageMimeMatch ? imageMimeMatch[1] : 'image/jpeg';
+      var imageExtension = imageMime.split('/')[1] || 'jpg';
+      var recipeDriveResult = saveFileToDrive_((data.name || 'receta') + '.' + imageExtension, imageMime, data.imageData);
+      delete data.imageData;
+      if (recipeDriveResult.error) throw new Error('Error al guardar la imagen de la receta en Google Drive: ' + recipeDriveResult.error);
+      if (recipeDriveResult.driveUrl) {
+        data.coverUrl = recipeDriveResult.driveUrl;
+        data.coverFileId = recipeDriveResult.driveFileId;
+      }
+    }
     var saved = upsert_(table, data);
     if (action === 'eventUpsert') syncEventReminder_(saved);
     if (action === 'recipeUpsert' && !wasExisting) sendEntityPush_(saved, 'recipe');
