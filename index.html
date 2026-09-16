@@ -52,11 +52,14 @@
     .day-event-row { display: grid; grid-template-columns: 62px 1fr; min-height: 48px; border-bottom: 1px solid var(--line); }
     .day-event-time { padding: 13px 10px 10px 0; color: var(--muted); font-size: 11px; font-weight: 700; text-align: right; }
     .day-event-slot { min-width: 0; padding: 7px 0 7px 12px; border-left: 1px solid var(--line); }
+    .day-event-item { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 6px; align-items: stretch; }
     .day-event-button { display: grid; width: 100%; gap: 3px; padding: 8px 10px; border-left: 4px solid var(--green); border-radius: 5px; background: #e8f1eb; color: var(--ink); text-align: left; }
     .day-event-button:hover, .day-event-button:focus-visible { background: #d8e9dd; outline: 2px solid var(--green); outline-offset: 1px; }
     .day-event-button.done { opacity: .6; }
     .day-event-button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .day-event-button small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event-delete-button { display: grid; place-items: center; border: 1px solid #e4b5ae; border-radius: 5px; background: transparent; color: #ba3f34; font-size: 16px; cursor: pointer; }
+    .event-delete-button:hover, .event-delete-button:focus-visible { background: #fff0ed; outline: 2px solid #e98779; outline-offset: 1px; }
     .day-events-empty { padding: 28px 0; color: var(--muted); font-size: 13px; text-align: center; }
     .calendar.week-view { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line); }
     .week-day { min-height: 84px; padding: 12px 14px; display: grid; grid-template-columns: 110px 1fr; align-items: start; column-gap: 18px; background: #fff; }
@@ -265,7 +268,7 @@
           <div class="next-event-detail"><dt>Lugar</dt><dd id="next-event-place"></dd></div>
           <div class="next-event-detail" id="next-event-description-row"><dt>Descripción</dt><dd id="next-event-description"></dd></div>
         </dl>
-        <div class="modal-actions"><button class="secondary-button" id="next-event-modal-dismiss" type="button">Cerrar</button></div>
+        <div class="modal-actions"><button class="secondary-button" id="next-event-modal-dismiss" type="button">Cerrar</button><button class="event-delete-button" id="next-event-delete" type="button" title="Eliminar evento" aria-label="Eliminar evento">🗑</button></div>
       </div>
     </div>
   </div>
@@ -277,7 +280,7 @@
         <h2 id="modal-title">Revisión médica</h2>
         <p class="modal-detail">Hoy, lunes 7 de septiembre · 08:30</p>
         <p class="modal-detail">Centro de salud familiar</p>
-        <div class="modal-actions"><button class="secondary-button modal-edit">Editar</button><button class="primary-button modal-done">✓ Marcar como hecho</button></div>
+        <div class="modal-actions"><button class="secondary-button modal-edit">Editar</button><button class="event-delete-button" id="event-delete" type="button" title="Eliminar evento" aria-label="Eliminar evento">🗑</button><button class="primary-button modal-done">✓ Marcar como hecho</button></div>
       </div>
       <form class="event-form" novalidate>
         <p class="section-kicker" id="form-kicker">NUEVO POST-IT</p>

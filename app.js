@@ -763,7 +763,19 @@ function renderEvents(filter = 'todos') {
   grid.querySelectorAll('.sticky').forEach(card => card.addEventListener('click', () => openModal(Number(card.dataset.id))));
   grid.querySelectorAll('[data-done]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); toggleDone(Number(button.dataset.done)); }));
 }
-async function toggleDone(id) { const event = events.find(item => item.id === id); event.done = !event.done; await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); }
+async function toggleDone(id) { const event = events.find(item => String(item.id) === String(id)); if (!event) return; event.done = !event.done; await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); }
+async function deleteEvent(id, closePopup) {
+  const eventIndex = events.findIndex(item => String(item.id) === String(id));
+  if (eventIndex < 0) return;
+  const event = events[eventIndex];
+  if (!window.confirm(`¿Estás seguro de que deseas eliminar el evento "${event.name}"?`)) return;
+  events.splice(eventIndex, 1);
+  closePopup();
+  renderEvents(getActiveFilter());
+  buildCalendar();
+  await apiRequest('eventDelete', { entityId: String(event.id), eventId: String(event.id) });
+  await refreshFromSheets();
+}
 function showForm(event) {
   modal.querySelector('.modal-detail-view').hidden = true;
   eventForm.hidden = false;
@@ -778,15 +790,16 @@ function showForm(event) {
   if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; }); else eventForm.elements.date.value = todayKey;
   renderEventOptions();
 }
-function openModal(id) { const event = events.find(item => item.id === id); const member = getMember(event.member); const eventDate = new Date(`${event.date}T12:00:00`); const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name; modal.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; modal.querySelector('#modal-title').textContent = event.name; modal.querySelector('.modal-category').textContent = event.category.toUpperCase(); modal.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${memberName}`; modal.querySelectorAll('.modal-detail')[0].textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(eventDate)} · ${event.time}`; modal.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+function openModal(id) { const event = events.find(item => String(item.id) === String(id)); if (!event) return; const member = getMember(event.member); const eventDate = new Date(`${event.date}T12:00:00`); const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name; modal.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; modal.querySelector('#modal-title').textContent = event.name; modal.querySelector('.modal-category').textContent = event.category.toUpperCase(); modal.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${memberName}`; modal.querySelectorAll('.modal-detail')[0].textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(eventDate)} · ${event.time}`; modal.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
 function openDayEventsModal(selectedDateKey) {
   const date = new Date(`${selectedDateKey}T12:00:00`);
   const dayEvents = eventsForRange(selectedDateKey, selectedDateKey).sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
   document.querySelector('#day-events-title').textContent = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date);
-  dayEventsList.innerHTML = Array.from({ length: 24 }, (_, hour) => { const hourKey = `${String(hour).padStart(2, '0')}:`; const hourEvents = dayEvents.filter(event => String(event.time || '').startsWith(hourKey)); const eventMarkup = hourEvents.map(event => `<button class="day-event-button ${event.done ? 'done' : ''}" type="button" data-day-event-id="${event.id}"><strong>${event.name}</strong><small>${event.time || '--:--'} · ${getMember(event.member).name} · ${event.place || 'Sin lugar indicado'}</small></button>`).join(''); return `<div class="day-event-row"><span class="day-event-time">${String(hour).padStart(2, '0')}:00</span><div class="day-event-slot">${eventMarkup}</div></div>`; }).join('');
-  dayEventsList.querySelectorAll('[data-day-event-id]').forEach(button => button.addEventListener('click', () => { closeDayEventsModal(); openModal(Number(button.dataset.dayEventId)); }));
+  dayEventsList.innerHTML = Array.from({ length: 24 }, (_, hour) => { const hourKey = `${String(hour).padStart(2, '0')}:`; const hourEvents = dayEvents.filter(event => String(event.time || '').startsWith(hourKey)); const eventMarkup = hourEvents.map(event => `<div class="day-event-item"><button class="day-event-button ${event.done ? 'done' : ''}" type="button" data-day-event-id="${event.id}"><strong>${event.name}</strong><small>${event.time || '--:--'} · ${getMember(event.member).name} · ${event.place || 'Sin lugar indicado'}</small></button><button class="event-delete-button" type="button" data-day-event-delete-id="${event.id}" title="Eliminar evento" aria-label="Eliminar evento">🗑</button></div>`).join(''); return `<div class="day-event-row"><span class="day-event-time">${String(hour).padStart(2, '0')}:00</span><div class="day-event-slot">${eventMarkup}</div></div>`; }).join('');
+  dayEventsList.querySelectorAll('[data-day-event-id]').forEach(button => button.addEventListener('click', () => { closeDayEventsModal(); openModal(button.dataset.dayEventId); }));
+  dayEventsList.querySelectorAll('[data-day-event-delete-id]').forEach(button => button.addEventListener('click', () => deleteEvent(button.dataset.dayEventDeleteId, closeDayEventsModal)));
   dayEventsModal.classList.add('open');
   dayEventsModal.setAttribute('aria-hidden', 'false');
 }
@@ -801,6 +814,7 @@ function openNextEventModal(event = getNextEvent()) {
   document.querySelector('#next-event-date-time').textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${event.date}T12:00:00`))} · ${event.time || 'Sin hora'}`;
   document.querySelector('#next-event-place').textContent = event.place || 'Sin lugar indicado';
   document.querySelector('#next-event-description').textContent = event.description || 'Sin descripción';
+  nextEventModal.dataset.id = event.id;
   nextEventModal.classList.add('open');
   nextEventModal.setAttribute('aria-hidden', 'false');
 }
@@ -815,7 +829,8 @@ document.querySelector('#member-filters').addEventListener('click', event => {
 renderMemberFilters();
 document.querySelector('.modal-close').addEventListener('click', closeModal);
 modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
-document.querySelector('.modal-done').addEventListener('click', () => { toggleDone(Number(modal.dataset.id)); closeModal(); });
+document.querySelector('.modal-done').addEventListener('click', () => { toggleDone(modal.dataset.id); closeModal(); });
+document.querySelector('#event-delete').addEventListener('click', () => deleteEvent(modal.dataset.id, closeModal));
 document.querySelector('.modal-edit').addEventListener('click', () => showForm(events.find(item => item.id === Number(modal.dataset.id))));
 document.querySelector('.modal-cancel').addEventListener('click', closeModal);
 document.querySelector('#event-reminder-trigger').addEventListener('change', event => { if (event.target.value === 'configure') openReminderModal(); });
@@ -834,6 +849,7 @@ document.querySelectorAll('[name="repeat-choice"]').forEach(option => option.add
 nextEventButton.addEventListener('click', openNextEventModal);
 document.querySelector('#day-events-close').addEventListener('click', closeDayEventsModal);
 document.querySelector('#next-event-modal-dismiss').addEventListener('click', closeNextEventModal);
+document.querySelector('#next-event-delete').addEventListener('click', () => deleteEvent(nextEventModal.dataset.id, closeNextEventModal));
 nextEventModal.addEventListener('click', event => { if (event.target === nextEventModal) closeNextEventModal(); });
 eventForm.addEventListener('submit', async event => {
   event.preventDefault();
