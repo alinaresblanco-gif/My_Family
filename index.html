@@ -44,10 +44,10 @@
     #view-agenda .cal-day { cursor: pointer; }
     #view-agenda .cal-day-events { display: grid; width: calc(100% + 24px); gap: 3px; margin: 7px -12px 0; overflow: hidden; }
     #view-agenda .cal-event-pill { display: block; width: 100%; min-width: 0; overflow: hidden; padding: 2px 5px; border-radius: 4px; background: var(--member-color, var(--green)); color: #fff; font-size: 10px; line-height: 1.1; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-    #view-agenda .cal-event-pill.range-start, #view-agenda .cal-event-pill.range-middle, #view-agenda .cal-event-pill.range-end { position: relative; z-index: 1; width: calc(100% + 24px); margin-left: -12px; }
-    #view-agenda .cal-event-pill.range-start { border-radius: 4px 0 0 4px; }
-    #view-agenda .cal-event-pill.range-middle { border-radius: 0; color: transparent; }
-    #view-agenda .cal-event-pill.range-end { border-radius: 0 4px 4px 0; }
+    #view-agenda .cal-event-pill.range-start, #view-agenda .cal-event-pill.range-middle, #view-agenda .cal-event-pill.range-end { position: relative; z-index: 1; }
+    #view-agenda .cal-event-pill.range-start { border-radius: 4px 0 0 4px; width: calc(100% + 12px); }
+    #view-agenda .cal-event-pill.range-middle { border-radius: 0; color: transparent; width: calc(100% + 24px); margin-left: -12px; }
+    #view-agenda .cal-event-pill.range-end { border-radius: 0 4px 4px 0; width: calc(100% + 12px); margin-left: -12px; }
     #view-agenda .cal-event-pill.done { opacity: .68; }
     #view-agenda .cal-event-more { color: var(--muted); font-size: 10px; font-weight: 700; }
     .day-events-modal { width: min(620px, calc(100% - 32px)); }
@@ -456,7 +456,7 @@
   <script src="firebase-config.js?v=2026.09.13.1"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
-  <script src="app.js?v=2026.09.15.8"></script>
+  <script src="app.js?v=2026.09.16.1"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
