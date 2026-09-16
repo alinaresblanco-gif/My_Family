@@ -125,7 +125,7 @@ function isEventOnDate(event, targetKey) {
   const endKey = String(event?.endDate || startKey).slice(0, 10);
   if (endKey < startKey || targetKey > endKey) return false;
   const repeat = event.repeatFrequency || 'none';
-  if (repeat === 'none') return targetKey === startKey;
+  if (repeat === 'none') return targetKey >= startKey && targetKey <= endKey;
   const start = new Date(`${startKey}T12:00:00`);
   const target = new Date(`${targetKey}T12:00:00`);
   const daysSinceStart = Math.round((target - start) / 86400000);
