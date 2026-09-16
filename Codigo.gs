@@ -200,7 +200,7 @@ function upsert_(table, data) {
 
 function ensureSchema_() {
   var requiredColumns = {
-    eventos: ['reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency'],
+    eventos: ['endDate', 'reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency'],
     dispositivos_push: ['fcmToken']
   };
   Object.keys(requiredColumns).forEach(function(table) {

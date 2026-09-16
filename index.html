@@ -44,6 +44,10 @@
     #view-agenda .cal-day { cursor: pointer; }
     #view-agenda .cal-day-events { display: grid; width: calc(100% + 24px); gap: 3px; margin: 7px -12px 0; overflow: hidden; }
     #view-agenda .cal-event-pill { display: block; width: 100%; min-width: 0; overflow: hidden; padding: 2px 5px; border-radius: 4px; background: var(--member-color, var(--green)); color: #fff; font-size: 10px; line-height: 1.1; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+    #view-agenda .cal-event-pill.range-start, #view-agenda .cal-event-pill.range-middle, #view-agenda .cal-event-pill.range-end { position: relative; z-index: 1; width: calc(100% + 24px); margin-left: -12px; }
+    #view-agenda .cal-event-pill.range-start { border-radius: 4px 0 0 4px; }
+    #view-agenda .cal-event-pill.range-middle { border-radius: 0; color: transparent; }
+    #view-agenda .cal-event-pill.range-end { border-radius: 0 4px 4px 0; }
     #view-agenda .cal-event-pill.done { opacity: .68; }
     #view-agenda .cal-event-more { color: var(--muted); font-size: 10px; font-weight: 700; }
     .day-events-modal { width: min(620px, calc(100% - 32px)); }
@@ -286,7 +290,7 @@
         <p class="section-kicker" id="form-kicker">NUEVO POST-IT</p>
         <h2 id="form-title">Añadir Post-it</h2>
         <label>Qué vais a hacer<input name="name" required maxlength="70" placeholder="Ej. Visita al dentista"></label>
-        <div class="form-row"><label>Fecha<input name="date" type="date" required></label><label>Hora<input name="time" type="time" required></label></div><label>Para<select name="member" id="event-member-select" required></select></label>
+        <div class="form-row"><label>Fecha de inicio<input name="date" type="date" required></label><label>Hasta (opcional)<input name="endDate" type="date"></label></div><label>Hora<input name="time" type="time" required></label><label>Para<select name="member" id="event-member-select" required></select></label>
         <div class="form-row"><label>Aviso<select id="event-reminder-trigger"><option value="off">Aviso desactivado</option><option value="configure">Configurar aviso</option></select></label><label>Repetición<select id="event-repeat-trigger"><option value="none">No repetir</option><option value="configure">Configurar repetición</option></select></label></div>
         <label>Lugar o detalle<input name="place" required maxlength="100" placeholder="Ej. Centro de salud"></label>
         <label>Tipo<select name="category"><option value="🗓️ Evento">Evento</option><option value="🏥 Médico">Médico</option><option value="🎵 Actividad">Actividad</option><option value="⚽ Ocio">Ocio</option><option value="🛒 Tareas">Tareas</option></select></label>

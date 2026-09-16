@@ -66,6 +66,7 @@ Es la tabla común de Post-it de Inicio y eventos de Agenda.
 | `memberId` | texto | Sí | Miembro responsable o creador. |
 | `name` | texto | Sí | Nombre del Post-it o evento. |
 | `eventDate` | fecha | Sí | Día del evento. |
+| `endDate` | fecha | No | Último día del evento; vacío para eventos de un solo día. |
 | `eventTime` | hora | No | Hora local. |
 | `place` | texto | No | Lugar o detalle. |
 | `category` | texto | Sí | Médico, Actividad, Ocio, Tareas u otra categoría. |

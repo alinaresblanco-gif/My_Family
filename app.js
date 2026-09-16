@@ -1,5 +1,5 @@
 const FALLBACK_APP_VERSION = '2026.09.09.2';
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbz_qubw1Mk9uPBuZbATR14bi13gobeOE6SB_C4FtTNzsrNiq2KQ2QcRZpk23comIYg/exec';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxNNSW0nyhF0dURJe1y8bsFWsbfyfsa6Q-2NimO6_LDa68XuzSDCBDcsSUwYePiLCJX/exec';
 const FAMILY_ID = 'family-my-family';
 const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
 let currentAppVersion = null;
@@ -107,7 +107,7 @@ async function pushApiRequest(action, data = {}) {
   if (!response.ok || !payload.ok) throw new Error(payload.error || `No se pudo registrar el dispositivo (HTTP ${response.status}).`);
   return payload;
 }
-function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, endDate: event.endDate || '', eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe, imageData) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: recipe.coverFileId || '', coverUrl: recipe.coverUrl || '', imageData: imageData || recipe.image || '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipeImageUrl(recipe) {
@@ -122,6 +122,8 @@ function eventDateKey(event) { return String(event?.date || '').slice(0, 10); }
 function isEventOnDate(event, targetKey) {
   const startKey = eventDateKey(event);
   if (!startKey || targetKey < startKey) return false;
+  const endKey = String(event?.endDate || startKey).slice(0, 10);
+  if (endKey < startKey || targetKey > endKey) return false;
   const repeat = event.repeatFrequency || 'none';
   if (repeat === 'none') return targetKey === startKey;
   const start = new Date(`${startKey}T12:00:00`);
@@ -180,7 +182,7 @@ function saveDocuments() {
 }
 function saveMembers() { localStorage.setItem('my-family-members', JSON.stringify(members)); members.forEach(member => apiRequest('memberUpsert', { data: memberPayload(member) })); }
 function applyRemoteData(data) {
-  if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
+  if (Array.isArray(data.events)) events.splice(0, events.length, ...data.events.map(event => ({ ...event, id: /^\d+$/.test(String(event.eventId)) ? Number(event.eventId) : event.eventId, member: event.memberId, date: String(event.eventDate || '').slice(0, 10), endDate: String(event.endDate || '').slice(0, 10), time: String(event.eventTime || '').match(/\d{2}:\d{2}/)?.[0] || event.eventTime, done: event.status === 'done' })));
   if (data.members?.length) members.splice(0, members.length, ...data.members.map(member => ({ ...member, id: /^\d+$/.test(String(member.memberId)) ? Number(member.memberId) : member.memberId, key: member.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), color: member.colorHex })));
   if (Array.isArray(data.recipes)) recipes.splice(0, recipes.length, ...data.recipes.map(recipe => { const existingRecipe = recipes.find(r => String(r.id || r.recipeId) === String(recipe.recipeId)); return { ...recipe, id: recipe.recipeId, time: recipe.prepTimeMinutes ? `${recipe.prepTimeMinutes} min` : '', ingredients: recipe.ingredientsText, steps: recipe.stepsText, image: recipeImageUrl(recipe) || existingRecipe?.image || '' }; }));
   if (Array.isArray(data.documents)) {
@@ -788,9 +790,10 @@ function showForm(event) {
   document.querySelector('#form-kicker').textContent = event ? 'EDITAR POST-IT' : 'NUEVO POST-IT';
   document.querySelector('#form-title').textContent = event ? 'Editar Post-it' : 'Añadir Post-it';
   if (event) Object.entries(event).forEach(([key, value]) => { if (eventForm.elements[key]) eventForm.elements[key].value = value; }); else eventForm.elements.date.value = todayKey;
+  eventForm.elements.endDate.min = eventForm.elements.date.value || todayKey;
   renderEventOptions();
 }
-function openModal(id) { const event = events.find(item => String(item.id) === String(id)); if (!event) return; const member = getMember(event.member); const eventDate = new Date(`${event.date}T12:00:00`); const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name; modal.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; modal.querySelector('#modal-title').textContent = event.name; modal.querySelector('.modal-category').textContent = event.category.toUpperCase(); modal.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${memberName}`; modal.querySelectorAll('.modal-detail')[0].textContent = `${new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(eventDate)} · ${event.time}`; modal.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+function openModal(id) { const event = events.find(item => String(item.id) === String(id)); if (!event) return; const member = getMember(event.member); const eventDate = new Date(`${event.date}T12:00:00`); const dateLabel = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(eventDate); const endLabel = event.endDate && event.endDate !== event.date ? ` al ${new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${event.endDate}T12:00:00`))}` : ''; const memberName = member.name === event.member ? (memberNames[event.member] || member.name) : member.name; modal.querySelector('.modal-detail-view').hidden = false; eventForm.hidden = true; modal.querySelector('#modal-title').textContent = event.name; modal.querySelector('.modal-category').textContent = event.category.toUpperCase(); modal.querySelector('.modal-member').innerHTML = `${memberDot(event.member)} ${memberName}`; modal.querySelectorAll('.modal-detail')[0].textContent = `${dateLabel}${endLabel} · ${event.time}`; modal.querySelectorAll('.modal-detail')[1].textContent = event.place; modal.dataset.id = id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function openCreateModal() { delete modal.dataset.id; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); showForm(); }
 function closeModal() { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
 function openDayEventsModal(selectedDateKey) {
@@ -835,6 +838,7 @@ document.querySelector('.modal-edit').addEventListener('click', () => showForm(e
 document.querySelector('.modal-cancel').addEventListener('click', closeModal);
 document.querySelector('#event-reminder-trigger').addEventListener('change', event => { if (event.target.value === 'configure') openReminderModal(); });
 document.querySelector('#event-repeat-trigger').addEventListener('change', event => { if (event.target.value === 'configure') openRepeatModal(); });
+eventForm.elements.date.addEventListener('change', () => { eventForm.elements.endDate.min = eventForm.elements.date.value; if (eventForm.elements.endDate.value && eventForm.elements.endDate.value < eventForm.elements.date.value) eventForm.elements.endDate.value = eventForm.elements.date.value; });
 document.querySelector('#reminder-modal-close').addEventListener('click', closeReminderModal);
 document.querySelector('#repeat-modal-close').addEventListener('click', closeRepeatModal);
 reminderModal.addEventListener('click', event => { if (event.target === reminderModal) closeReminderModal(); });
@@ -855,10 +859,11 @@ eventForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!eventForm.checkValidity()) { document.querySelector('.form-error').textContent = 'Completa los campos obligatorios.'; return; }
   const data = Object.fromEntries(new FormData(eventForm));
+  if (data.endDate && data.endDate < data.date) { document.querySelector('.form-error').textContent = 'La fecha final no puede ser anterior a la fecha de inicio.'; return; }
   data.reminderEnabled = data.reminderEnabled === 'true';
   data.reminderMinutesBefore = Number(data.reminderMinutesBefore || 0);
   data.repeatFrequency = data.repeatFrequency || 'none';
-  const existing = events.find(item => item.id === Number(modal.dataset.id));
+  const existing = events.find(item => String(item.id) === String(modal.dataset.id));
   const savedEvent = existing || { ...data, id: Date.now(), done: false };
   if (existing) Object.assign(existing, data); else events.push(savedEvent);
   await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); closeModal();
@@ -1062,7 +1067,7 @@ function buildCalendar() {
     const cellDateKey = dateKey(cellDate);
     const dayEvents = eventsForRange(cellDateKey, cellDateKey);
     const isToday = isCurrentMonth && cellDateKey === todayKey;
-    const visibleEvents = dayEvents.slice(0, 3).map(event => `<span class="cal-event-pill ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" title="${event.name}">${event.time || ''} ${event.name}</span>`).join('');
+    const visibleEvents = dayEvents.slice(0, 3).map(event => { const startKey = eventDateKey(event); const endKey = String(event.endDate || startKey).slice(0, 10); const rangeClass = endKey > startKey ? (cellDateKey === startKey ? 'range-start' : cellDateKey === endKey ? 'range-end' : 'range-middle') : ''; return `<span class="cal-event-pill ${rangeClass} ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" title="${event.name}">${rangeClass === 'range-middle' ? '' : `${event.time || ''} ${event.name}`}</span>`; }).join('');
     const moreEvents = dayEvents.length > 3 ? `<span class="cal-event-more">+${dayEvents.length - 3} más</span>` : '';
     return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}" data-calendar-date="${cellDateKey}" tabindex="0" role="button"><span class="cal-day-number">${displayedDay}</span><div class="cal-day-events">${visibleEvents}${moreEvents}</div></div>`;
   }).join('');
