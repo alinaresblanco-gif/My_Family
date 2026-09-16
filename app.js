@@ -1067,7 +1067,9 @@ function buildCalendar() {
     const cellDateKey = dateKey(cellDate);
     const dayEvents = eventsForRange(cellDateKey, cellDateKey);
     const isToday = isCurrentMonth && cellDateKey === todayKey;
-    const visibleEvents = dayEvents.slice(0, 3).map(event => { const startKey = event.rangeStartKey || eventDateKey(event); const endKey = event.rangeEndKey || startKey; const rangeClass = endKey > startKey ? (cellDateKey === startKey ? 'range-start' : cellDateKey === endKey ? 'range-end' : 'range-middle') : ''; return `<span class="cal-event-pill ${rangeClass} ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" title="${event.name}">${rangeClass === 'range-middle' ? '' : `${event.time || ''} ${event.name}`}</span>`; }).join('');
+    const isRangeEvent = event => (event.rangeStartKey || eventDateKey(event)) !== (event.rangeEndKey || eventDateKey(event));
+    const sortedDayEvents = [...dayEvents].sort((a, b) => Number(isRangeEvent(b)) - Number(isRangeEvent(a)));
+    const visibleEvents = sortedDayEvents.slice(0, 3).map(event => { const startKey = event.rangeStartKey || eventDateKey(event); const endKey = event.rangeEndKey || startKey; const rangeClass = endKey > startKey ? (cellDateKey === startKey ? 'range-start' : cellDateKey === endKey ? 'range-end' : 'range-middle') : ''; return `<span class="cal-event-pill ${rangeClass} ${event.done ? 'done' : ''}" style="--member-color:${getMember(event.member).color}" title="${event.name}">${rangeClass === 'range-middle' ? '' : `${event.time || ''} ${event.name}`}</span>`; }).join('');
     const moreEvents = dayEvents.length > 3 ? `<span class="cal-event-more">+${dayEvents.length - 3} más</span>` : '';
     return `<div class="cal-day ${isToday ? 'today' : ''} ${isCurrentMonth ? '' : 'outside-month'}" data-calendar-date="${cellDateKey}" tabindex="0" role="button"><span class="cal-day-number">${displayedDay}</span><div class="cal-day-events">${visibleEvents}${moreEvents}</div></div>`;
   }).join('');
