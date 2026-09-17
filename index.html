@@ -163,8 +163,6 @@
     .member-form input, .member-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 400 13px 'DM Sans', sans-serif; padding: 10px; }
     .member-form textarea { min-height: 78px; resize: vertical; }
     .member-form input:focus, .member-form textarea:focus { outline: 2px solid #b9d8c7; border-color: var(--green); }
-    .member-calendar-toggle { display: flex; flex-direction: row !important; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0 4px; }
-    .member-calendar-toggle .toggle { flex: 0 0 auto; }
     .member-color-row { display: grid; grid-template-columns: 1fr 72px; gap: 12px; align-items: end; }
     .member-color-row input[type="color"] { height: 39px; padding: 3px; cursor: pointer; }
     .member-form .modal-actions { margin-top: 20px; }
@@ -449,7 +447,6 @@
         <div class="member-color-row"><label>Color del perfil<input name="color" type="color" value="#8ec68f"></label><label>Iniciales<input name="initials" maxlength="2" placeholder="A"></label></div>
         <label>Teléfono<input name="phone" type="tel" maxlength="25" placeholder="Ej. 600 000 000"></label>
         <label>Email<input name="email" type="email" maxlength="100" placeholder="Ej. nombre@ejemplo.com"></label>
-        <label class="member-calendar-toggle">Conectar con Google Calender <span class="toggle"><input name="calendarEnabled" type="checkbox"><i></i></span></label>
         <label>Fecha de nacimiento<input name="birthDate" type="date"></label>
         <label>Notas<textarea name="notes" maxlength="300" placeholder="Información adicional del miembro..."></textarea></label>
         <p class="form-error" id="member-form-error" role="alert"></p>
