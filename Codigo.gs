@@ -380,7 +380,7 @@ function sendTestPush() {
 
 function calendarMember_(event) {
   return rows_('miembros', event.familyId).filter(function(member) {
-    return String(member.memberId) === String(event.memberId || '');
+    return String(member.memberId) === String(event.memberId || '') || slug_(member.name) === slug_(event.memberId);
   })[0] || null;
 }
 
@@ -455,6 +455,14 @@ function deleteCalendarEvent_(table, eventId) {
   } catch (error) {}
 }
 
+function testCalendarAccess(email) {
+  email = String(email || '').trim();
+  if (!email) throw new Error('Indica un email de Google Calendar');
+  var calendar = CalendarApp.getCalendarById(email);
+  if (!calendar) throw new Error('No se puede acceder al calendario ' + email + '. Compártelo con la cuenta propietaria de este Apps Script.');
+  return 'Acceso a Google Calendar confirmado: ' + calendar.getName();
+}
+
 function parseEventDate_(value) {
   var match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
@@ -512,7 +520,7 @@ function expirePendingEventReminders_(event, keepNotificationId) {
 }
 
 function slug_(value) {
-  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 function eventMemberName_(event) {
