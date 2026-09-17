@@ -48,6 +48,7 @@ Fuente única para nombres, colores y perfiles usados en Inicio, Agenda, Miembro
 | `colorHex` | texto | Sí | Color del perfil, por ejemplo `#8EC68F`. |
 | `phone` | texto | No | Teléfono, con formato internacional si se usa para avisos. |
 | `email` | texto | No | Correo opcional. |
+| `calendarEnabled` | booleano | Sí | Si el miembro ha activado la conexión con Google Calendar. Por defecto `FALSE`. |
 | `birthDate` | fecha | No | Fecha de nacimiento. |
 | `notes` | texto | No | Notas privadas del perfil. |
 | `active` | booleano | Sí | Permite ocultar sin borrar. |

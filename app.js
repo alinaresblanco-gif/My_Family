@@ -108,7 +108,7 @@ async function pushApiRequest(action, data = {}) {
   return payload;
 }
 function eventPayload(event) { return { eventId: String(event.id), familyId: FAMILY_ID, memberId: event.member || '', name: event.name || '', eventDate: event.date || todayKey, endDate: event.endDate || '', eventTime: event.time || '', place: event.place || '', category: event.category || '', description: event.description || '', status: event.done ? 'done' : 'pending', doneAt: event.done ? (event.doneAt || new Date().toISOString()) : '', reminderEnabled: event.reminderEnabled === true || event.reminderEnabled === 'true', reminderMinutesBefore: event.reminderMinutesBefore ?? '', repeatFrequency: event.repeatFrequency || 'none', createdBy: event.createdBy || 'web', createdAt: event.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
-function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
+function memberPayload(member) { return { memberId: String(member.id), familyId: FAMILY_ID, name: member.name || '', role: member.role || '', initials: member.initials || '', colorHex: member.color || '#8ec68f', phone: member.phone || '', email: member.email || '', calendarEnabled: member.calendarEnabled === true || member.calendarEnabled === 'true', birthDate: member.birthDate || '', notes: member.notes || '', active: member.active !== false, createdAt: member.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipePayload(recipe, imageData) { return { recipeId: String(recipe.id || Date.now()), familyId: FAMILY_ID, createdByMemberId: recipe.createdByMemberId || '', name: recipe.name || '', category: recipe.category || 'Familiares', description: recipe.description || '', prepTimeMinutes: Number.parseInt(recipe.time, 10) || '', servings: recipe.servings || '', coverFileId: recipe.coverFileId || '', coverUrl: recipe.coverUrl || '', imageData: imageData || recipe.image || '', ingredientsText: recipe.ingredients || '', stepsText: recipe.steps || '', favorite: recipe.favorite === true, createdAt: recipe.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function recipeImageUrl(recipe) {
   if (recipe.coverFileId) return `https://drive.google.com/thumbnail?id=${encodeURIComponent(recipe.coverFileId)}&sz=w1200`;
@@ -281,7 +281,7 @@ function openMemberModal(member) {
   memberForm.dataset.id = member ? member.id : '';
   document.querySelector('#member-modal-title').textContent = member ? 'Personalizar perfil' : 'Añadir miembro';
   document.querySelector('#member-form-error').textContent = '';
-  if (member) Object.entries(member).forEach(([key, value]) => { if (memberForm.elements[key]) memberForm.elements[key].value = value; });
+  if (member) Object.entries(member).forEach(([key, value]) => { if (memberForm.elements[key]) memberForm.elements[key].type === 'checkbox' ? memberForm.elements[key].checked = value === true || value === 'true' : memberForm.elements[key].value = value; });
   memberModal.classList.add('open');
   memberModal.setAttribute('aria-hidden', 'false');
 }
@@ -943,6 +943,7 @@ memberForm.addEventListener('submit', event => {
   event.preventDefault();
   if (!memberForm.checkValidity()) { document.querySelector('#member-form-error').textContent = 'Completa el nombre y el parentesco o rol.'; return; }
   const data = Object.fromEntries(new FormData(memberForm));
+  data.calendarEnabled = memberForm.elements.calendarEnabled.checked;
   const existing = members.find(member => member.id === Number(memberForm.dataset.id));
   if (existing) Object.assign(existing, data); else members.push({ ...data, key: data.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'), id: Date.now() });
   saveMembers(); renderMembers(); renderMemberFilters(); renderEventMemberOptions(); renderEvents(getActiveFilter()); buildCalendar(); closeMemberModal();
