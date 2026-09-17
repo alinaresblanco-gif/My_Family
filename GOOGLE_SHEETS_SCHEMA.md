@@ -77,6 +77,10 @@ Es la tabla común de Post-it de Inicio y eventos de Agenda.
 | `reminderEnabled` | booleano | Sí | Si genera recordatorio. |
 | `reminderMinutesBefore` | número | No | Minutos de antelación. |
 | `repeatFrequency` | texto | Sí | `none`, `daily`, `weekly`, `monthly` o `yearly`. |
+| `calendarEventId` | texto | No | ID del evento creado en Google Calendar. |
+| `calendarId` | texto | No | Email/ID del calendario sincronizado. |
+| `calendarSyncStatus` | texto | No | `disabled`, `missing_email`, `synced` o `error`. |
+| `calendarSyncError` | texto | No | Último error de sincronización, si existe. |
 | `createdBy` | texto | Sí | Usuario o dispositivo que lo creó. |
 | `createdAt` | fecha-hora | Sí | Alta. |
 | `updatedAt` | fecha-hora | Sí | Último cambio. |
@@ -319,7 +323,7 @@ Todas las peticiones deben comprobar `familyId`, validar campos y devolver JSON 
 
 ### Importante sobre Google Apps Script
 
-Google Sheets actúa como base de datos, Apps Script como API y emisor, y Firebase Cloud Messaging realiza la entrega. La configuración web y la clave VAPID pública pueden estar en la PWA; la clave privada de la cuenta de servicio solo puede estar en `PropertiesService`.
+Google Sheets actúa como base de datos, Apps Script como API y emisor, y Firebase Cloud Messaging realiza la entrega. La sincronización con Google Calendar se ejecuta desde la cuenta propietaria del despliegue de Apps Script. Activar el conmutador y guardar un email no concede permisos automáticamente: el calendario debe estar compartido con esa cuenta, con permiso para modificar eventos. Si no está accesible, el Post-it se guarda en My Family y `calendarSyncStatus` queda en `error`.
 
 ## 7. Automatismos programados
 

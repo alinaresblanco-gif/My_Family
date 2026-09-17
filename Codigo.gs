@@ -41,6 +41,7 @@ function handle_(action, input) {
     if (['events', 'recipes', 'documents', 'members', 'settings', 'notifications'].indexOf(action) >= 0) return json_({ ok: true, data: rows_(table, familyId), error: null });
     if (action === 'eventDelete' || action === 'documentDelete' || action === 'recipeDelete') {
       var deleteId = String(input.entityId || input.eventId || input.documentId || input.recipeId || '');
+      if (action === 'eventDelete') deleteCalendarEvent_(table, deleteId);
       deleteRow_(table, deleteId);
       return json_({ ok: true, data: { deleted: true, id: deleteId }, error: null });
     }
@@ -73,7 +74,10 @@ function handle_(action, input) {
       }
     }
     var saved = upsert_(table, data);
-    if (action === 'eventUpsert') syncEventReminder_(saved);
+    if (action === 'eventUpsert') {
+      syncCalendarEvent_(saved);
+      syncEventReminder_(saved);
+    }
     if (action === 'recipeUpsert' && !wasExisting) sendEntityPush_(saved, 'recipe');
     if (action === 'documentCreate') sendEntityPush_(saved, 'document');
     return json_({ ok: true, data: saved, error: null });
@@ -200,7 +204,7 @@ function upsert_(table, data) {
 
 function ensureSchema_() {
   var requiredColumns = {
-    eventos: ['endDate', 'reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency'],
+    eventos: ['endDate', 'reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency', 'calendarEventId', 'calendarId', 'calendarSyncStatus', 'calendarSyncError'],
     miembros: ['email', 'calendarEnabled'],
     dispositivos_push: ['fcmToken']
   };
@@ -372,6 +376,83 @@ function sendMissingDocumentNotifications() {
 
 function sendTestPush() {
   return sendPushToFamily_(DEFAULT_FAMILY_ID, 'Prueba de My Family', 'Las notificaciones push funcionan correctamente.', './', 'system');
+}
+
+function calendarMember_(event) {
+  return rows_('miembros', event.familyId).filter(function(member) {
+    return String(member.memberId) === String(event.memberId || '');
+  })[0] || null;
+}
+
+function calendarDate_(value, hour, minute) {
+  var parts = parseEventDate_(value);
+  if (!parts) return null;
+  var zone = Session.getScriptTimeZone() || 'Europe/Madrid';
+  var dateText = parts.year + '-' + ('0' + parts.month).slice(-2) + '-' + ('0' + parts.day).slice(-2);
+  return Utilities.parseDate(dateText + ' ' + ('0' + (hour || 0)).slice(-2) + ':' + ('0' + (minute || 0)).slice(-2), zone, 'yyyy-MM-dd HH:mm');
+}
+
+function calendarEventDetails_(event) {
+  var time = parseEventTime_(event.eventTime);
+  var start = calendarDate_(event.eventDate, time ? time.hour : 0, time ? time.minute : 0);
+  if (!start) throw new Error('Fecha de evento invalida');
+  var endDate = event.endDate || event.eventDate;
+  var end;
+  if (!time) {
+    end = calendarDate_(endDate, 0, 0);
+    end.setDate(end.getDate() + 1);
+  } else {
+    end = calendarDate_(endDate, time.hour, time.minute);
+    end.setTime(end.getTime() + 60 * 60000);
+  }
+  return { start: start, end: end, allDay: !time };
+}
+
+function syncCalendarEvent_(event) {
+  var member = calendarMember_(event);
+  var enabled = member && (member.calendarEnabled === true || String(member.calendarEnabled).toUpperCase() === 'TRUE');
+  var email = member ? String(member.email || '').trim() : '';
+  if (!enabled) {
+    upsert_('eventos', { eventId: event.eventId, calendarSyncStatus: 'disabled', calendarSyncError: '' });
+    return null;
+  }
+  if (!email) {
+    upsert_('eventos', { eventId: event.eventId, calendarSyncStatus: 'missing_email', calendarSyncError: 'Introduce un email para conectar Google Calendar.' });
+    return null;
+  }
+  try {
+    var calendar = CalendarApp.getCalendarById(email);
+    if (!calendar) throw new Error('El calendario no esta accesible para la cuenta del despliegue. Comparte el calendario con esa cuenta.');
+    var details = calendarEventDetails_(event);
+    var calendarEvent = event.calendarEventId ? calendar.getEventById(String(event.calendarEventId)) : null;
+    if (calendarEvent) {
+      if (details.allDay) calendarEvent.setAllDayDate(details.start);
+      else calendarEvent.setTime(details.start, details.end);
+      calendarEvent.setTitle(String(event.name || 'Post-it'));
+      calendarEvent.setLocation(String(event.place || ''));
+      calendarEvent.setDescription(String(event.description || 'Creado desde My Family'));
+    } else {
+      calendarEvent = details.allDay
+        ? calendar.createAllDayEvent(String(event.name || 'Post-it'), details.start)
+        : calendar.createEvent(String(event.name || 'Post-it'), details.start, details.end, { location: String(event.place || ''), description: String(event.description || 'Creado desde My Family') });
+    }
+    upsert_('eventos', { eventId: event.eventId, calendarEventId: calendarEvent.getId(), calendarId: email, calendarSyncStatus: 'synced', calendarSyncError: '' });
+    return calendarEvent.getId();
+  } catch (error) {
+    upsert_('eventos', { eventId: event.eventId, calendarId: email, calendarSyncStatus: 'error', calendarSyncError: String(error.message || error).slice(0, 500) });
+    return null;
+  }
+}
+
+function deleteCalendarEvent_(table, eventId) {
+  if (table !== 'eventos' || !eventId) return;
+  var event = rows_('eventos').filter(function(item) { return String(item.eventId) === String(eventId); })[0];
+  if (!event || !event.calendarEventId || !event.calendarId) return;
+  try {
+    var calendar = CalendarApp.getCalendarById(String(event.calendarId));
+    var calendarEvent = calendar && calendar.getEventById(String(event.calendarEventId));
+    if (calendarEvent) calendarEvent.deleteEvent();
+  } catch (error) {}
 }
 
 function parseEventDate_(value) {
