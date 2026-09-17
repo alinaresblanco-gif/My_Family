@@ -463,6 +463,15 @@ function testCalendarAccess(email) {
   return 'Acceso a Google Calendar confirmado: ' + calendar.getName();
 }
 
+function testConfiguredCalendarAccess() {
+  var members = rows_('miembros', DEFAULT_FAMILY_ID);
+  var member = members.filter(function(item) {
+    return (item.calendarEnabled === true || String(item.calendarEnabled).toUpperCase() === 'TRUE') && String(item.email || '').trim();
+  })[0];
+  if (!member) throw new Error('No hay ningún miembro con email y Google Calendar activado.');
+  return testCalendarAccess(String(member.email).trim());
+}
+
 function parseEventDate_(value) {
   var match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
