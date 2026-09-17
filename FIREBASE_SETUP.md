@@ -31,7 +31,7 @@ Ejecuta una vez `migrateSchema()` desde el editor de Apps Script. Esto añade `f
 
 1. Publica la PWA en HTTPS. FCM no funciona desde páginas HTTP, excepto `localhost`.
 2. En Apps Script abre **Implementar > Gestionar implementaciones > Editar > Nueva versión > Implementar**.
-3. La URL activa es `https://script.google.com/macros/s/AKfycbxUYmwpwEk-4pN0gu4br78LaxHIdRUozk1W1n0nB1lRIWuo-vSSICSDpJisyMl7VWX6/exec`. Si Google genera otra, actualiza `SHEETS_API_URL` en `app.js`.
+3. La URL activa es `https://script.google.com/macros/s/AKfycbwrOJOKZNqpJXzuD9XgxQ3Dpgf3a_CnPIyfzTrg1eQ7wx1FaQ6yjE7-LAWMUQuDt0k9/exec`. Si Google genera otra, actualiza `SHEETS_API_URL` en `app.js`.
 4. Abre la PWA instalada y pulsa **Notificaciones > Activar avisos**.
 5. Comprueba que aparece una fila activa con `fcmToken` en `dispositivos_push`.
 
