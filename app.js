@@ -1,5 +1,5 @@
 const FALLBACK_APP_VERSION = '2026.09.09.2';
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyvQg5by_6CL5qdpRzVs5zWXexa8oYN8hVUsleOfhE0y-vLoGD1EYKKk04e-huRkthE/exec';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbzAHcEALOQp6o-eGCIeaQMZisZ0fwarqmdLNYGHJCCaYrctFXXdIviQ42abQq_Vhvl_/exec';
 const FAMILY_ID = 'family-my-family';
 const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
 let currentAppVersion = null;

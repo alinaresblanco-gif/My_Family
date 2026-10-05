@@ -269,7 +269,7 @@ function sendFcm_(token, notification) {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + getFirebaseAccessToken_() },
-    payload: JSON.stringify({ message: { token: token, data: { title: String(notification.title), body: String(notification.message), url: String(notification.url || './'), notificationId: String(notification.notificationId), icon: './imagenes/logo-myfamily-trans-ok.png' }, webpush: { headers: { Urgency: 'high' } } } }),
+    payload: JSON.stringify({ message: { token: token, data: { title: String(notification.title), body: String(notification.message), url: String(notification.url || './'), notificationId: String(notification.notificationId), icon: './imagenes/logo-myfamily-trans-ok.png' }, webpush: { headers: { Urgency: 'high', TTL: '86400' } } } }),
     muteHttpExceptions: true
   });
   return { code: response.getResponseCode(), body: response.getContentText() };
@@ -520,9 +520,9 @@ function nextEventOccurrence_(event, currentTime) {
   return null;
 }
 
-function expirePendingEventReminders_(event, keepNotificationIds) {
+function expirePendingEventReminders_(event, keepNotificationIds, notificationRows) {
   var keep = [].concat(keepNotificationIds || []);
-  rows_('notificaciones', event.familyId).filter(function(notification) {
+  (notificationRows || rows_('notificaciones', event.familyId)).filter(function(notification) {
     return notification.entityType === 'event' && String(notification.entityId) === String(event.eventId) && !notification.sentAt && !notification.expiresAt && keep.indexOf(notification.notificationId) < 0;
   }).forEach(function(notification) {
     upsert_('notificaciones', { notificationId: notification.notificationId, familyId: event.familyId, expiresAt: now_(), updatedAt: now_() });
@@ -533,10 +533,10 @@ function slug_(value) {
   return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-function eventMemberName_(event) {
+function eventMemberName_(event, members) {
   var memberId = String(event.memberId || '');
   if (!memberId) return '';
-  var members = rows_('miembros', event.familyId);
+  members = members || rows_('miembros', event.familyId);
   var member = members.filter(function(item) {
     return String(item.memberId) === memberId || slug_(item.name) === slug_(memberId);
   })[0];
@@ -558,11 +558,11 @@ function reminderWhenLabel_(eventAt, referenceTime, zone) {
   return 'El ' + Utilities.formatDate(eventAt, zone, 'dd-MM-yyyy') + ' a las ' + time;
 }
 
-function eventReminderText_(event, occurrence, currentTime) {
+function eventReminderText_(event, occurrence, currentTime, members) {
   var zone = Session.getScriptTimeZone() || 'Europe/Madrid';
   var details = [reminderWhenLabel_(occurrence.eventAt, currentTime, zone)];
   if (event.place) details.push(String(event.place).trim());
-  var memberName = eventMemberName_(event);
+  var memberName = eventMemberName_(event, members);
   if (memberName) details.push('Para ' + memberName);
   return {
     title: eventCategoryLabel_(event.category) + ': ' + event.name,
@@ -572,19 +572,20 @@ function eventReminderText_(event, occurrence, currentTime) {
 
 var EVENT_REMINDER_OFFSETS_MINUTES = [1440, 300];
 
-function syncEventReminder_(event, currentTime) {
+function syncEventReminder_(event, currentTime, context) {
   currentTime = currentTime || new Date();
+  var existingRows = context ? context.notifications : rows_('notificaciones', event.familyId);
+  var members = context ? context.members : null;
   if (String(event.status) !== 'pending' || event.deletedAt) {
-    expirePendingEventReminders_(event, []);
+    expirePendingEventReminders_(event, [], existingRows);
     return [];
   }
   var occurrence = nextEventOccurrence_(event, currentTime);
   if (!occurrence) {
-    expirePendingEventReminders_(event, []);
+    expirePendingEventReminders_(event, [], existingRows);
     return [];
   }
   var zone = Session.getScriptTimeZone() || 'Europe/Madrid';
-  var existingRows = rows_('notificaciones', event.familyId);
   var results = [];
   var keepIds = [];
   EVENT_REMINDER_OFFSETS_MINUTES.forEach(function(minutesBefore) {
@@ -595,8 +596,8 @@ function syncEventReminder_(event, currentTime) {
     var scheduledAt = new Date(occurrence.eventAt.getTime() - minutesBefore * 60000);
     // Evita avisos ya vencidos al crear un evento con poca antelación
     if (scheduledAt.getTime() < currentTime.getTime() - 15 * 60000) return;
-    var reminderText = eventReminderText_(event, occurrence, scheduledAt);
-    results.push(upsert_('notificaciones', {
+    var reminderText = eventReminderText_(event, occurrence, scheduledAt, members);
+    var created = upsert_('notificaciones', {
       notificationId: notificationId,
       familyId: event.familyId,
       memberId: event.memberId || '',
@@ -608,16 +609,21 @@ function syncEventReminder_(event, currentTime) {
       scheduledAt: Utilities.formatDate(scheduledAt, zone, "yyyy-MM-dd'T'HH:mm:ssXXX"),
       sentAt: '',
       updatedAt: now_()
-    }));
+    });
+    existingRows.push(created);
+    results.push(created);
   });
-  expirePendingEventReminders_(event, keepIds);
+  expirePendingEventReminders_(event, keepIds, existingRows);
   return results;
 }
 
 function syncEventReminders_() {
   var currentTime = new Date();
+  var context = { notifications: rows_('notificaciones'), members: rows_('miembros') };
   var all = [];
-  rows_('eventos').forEach(function(event) { all = all.concat(syncEventReminder_(event, currentTime)); });
+  rows_('eventos').forEach(function(event) {
+    try { all = all.concat(syncEventReminder_(event, currentTime, context)); } catch (error) { console.error('Recordatorio ' + event.eventId + ': ' + error); }
+  });
   return all;
 }
 
