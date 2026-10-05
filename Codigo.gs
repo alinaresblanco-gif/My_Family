@@ -654,6 +654,16 @@ function installNotificationTrigger() {
   return 'Activador de notificaciones instalado cada minuto';
 }
 
+function diagnoseNotifications() {
+  var triggers = ScriptApp.getProjectTriggers().map(function(trigger) { return trigger.getHandlerFunction(); });
+  var devices = rows_('dispositivos_push').map(function(device) { return { deviceId: device.deviceId, active: device.active, platform: device.platform, lastSeenAt: device.lastSeenAt }; });
+  var reminders = rows_('notificaciones').filter(function(notification) { return notification.entityType === 'event'; }).slice(-10).map(function(notification) { return { id: notification.notificationId, scheduledAt: notification.scheduledAt, sentAt: notification.sentAt, expiresAt: notification.expiresAt }; });
+  var deliveries = rows_('envios_push').slice(-10).map(function(delivery) { return { notificationId: delivery.notificationId, status: delivery.status, sentAt: delivery.sentAt, lastError: delivery.lastError }; });
+  var report = { now: now_(), scriptTimeZone: Session.getScriptTimeZone(), spreadsheetTimeZone: SpreadsheetApp.openById(SPREADSHEET_ID).getSpreadsheetTimeZone(), triggers: triggers, devices: devices, reminders: reminders, deliveries: deliveries };
+  Logger.log(JSON.stringify(report, null, 2));
+  return report;
+}
+
 function ensureFamily_(familyId) {
   var existing = rows_('familias', familyId);
   if (existing.length) return;
