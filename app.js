@@ -117,6 +117,7 @@ function recipeImageUrl(recipe) {
 function documentPayload(document, fileData) { return { documentId: String(document.id || document.documentId || Date.now()), familyId: FAMILY_ID, uploadedByMemberId: document.uploadedByMemberId || '', name: document.name || '', mimeType: document.type || '', extension: documentExtension(document.name || ''), sizeBytes: document.size || 0, driveFileId: document.driveFileId || '', driveUrl: document.driveUrl || '', category: document.category || '', uploadDate: document.uploadDate || todayKey, expiryDate: document.expiryDate || '', notes: document.notes || '', fileData: fileData || document.data || '', createdAt: document.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), deletedAt: '' }; }
 function settingsPayload() { return { familyId: FAMILY_ID, notificationsEnabled: settings.notifications, eventRemindersEnabled: settings.eventReminders, documentRemindersEnabled: settings.documentReminders, syncEnabled: settings.sync, defaultCalendarView: settings.defaultView, timeFormat: settings.timeFormat, appearance: settings.appearance, familyName: settings.familyName, familyAvatar: settings.familyAvatar, pinEnabled: settings.pinEnabled, updatedAt: new Date().toISOString() }; }
 function saveEvents() { return Promise.all(events.map(event => apiRequest('eventUpsert', { data: eventPayload(event) }))); }
+function saveEvent(event) { return apiRequest('eventUpsert', { data: eventPayload(event) }); }
 function getActiveFilter() { return document.querySelector('.member-filter.selected')?.dataset.filter || 'todos'; }
 function eventDateKey(event) { return String(event?.date || '').slice(0, 10); }
 function isEventOnDate(event, targetKey) {
@@ -765,7 +766,7 @@ function renderEvents(filter = 'todos') {
   grid.querySelectorAll('.sticky').forEach(card => card.addEventListener('click', () => openModal(Number(card.dataset.id))));
   grid.querySelectorAll('[data-done]').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); toggleDone(Number(button.dataset.done)); }));
 }
-async function toggleDone(id) { const event = events.find(item => String(item.id) === String(id)); if (!event) return; event.done = !event.done; await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); }
+async function toggleDone(id) { const event = events.find(item => String(item.id) === String(id)); if (!event) return; event.done = !event.done; renderEvents(getActiveFilter()); await saveEvent(event); await refreshFromSheets(); renderEvents(getActiveFilter()); }
 async function deleteEvent(id, closePopup) {
   const eventIndex = events.findIndex(item => String(item.id) === String(id));
   if (eventIndex < 0) return;
@@ -866,7 +867,8 @@ eventForm.addEventListener('submit', async event => {
   const existing = events.find(item => String(item.id) === String(modal.dataset.id));
   const savedEvent = existing || { ...data, id: Date.now(), done: false };
   if (existing) Object.assign(existing, data); else events.push(savedEvent);
-  await saveEvents(); await refreshFromSheets(); renderEvents(getActiveFilter()); closeModal();
+  renderEvents(getActiveFilter()); closeModal();
+  await saveEvent(savedEvent); await refreshFromSheets(); renderEvents(getActiveFilter());
 });
 document.querySelector('#add-recipe').addEventListener('click', openRecipeModal);
 document.querySelectorAll('.recipe-modal-close').forEach(button => button.addEventListener('click', closeRecipeModal));

@@ -16,8 +16,12 @@ function json_(value) { return ContentService.createTextOutput(JSON.stringify(va
 function handle_(action, input) {
   try {
     var familyId = String(input.familyId || DEFAULT_FAMILY_ID);
-    ensureSchema_();
-    ensureFamily_(familyId);
+    var cache = CacheService.getScriptCache();
+    if (!cache.get('schema-ready:' + familyId)) {
+      ensureSchema_();
+      ensureFamily_(familyId);
+      cache.put('schema-ready:' + familyId, '1', 21600);
+    }
     if (action === 'bootstrap') return json_({ ok: true, data: { family: rows_('familias', familyId)[0] || null, members: rows_('miembros', familyId), events: rows_('eventos', familyId), settings: rows_('ajustes_familia', familyId)[0] || null, recipes: rows_('recetas', familyId), documents: rows_('documentos', familyId), notifications: rows_('notificaciones', familyId) }, error: null });
     if (action === 'pushSubscribe') {
       var subscription = input.data || input;
@@ -74,10 +78,7 @@ function handle_(action, input) {
       }
     }
     var saved = upsert_(table, data);
-    if (action === 'eventUpsert') {
-      syncCalendarEvent_(saved);
-      syncEventReminder_(saved);
-    }
+    if (action === 'eventUpsert') syncCalendarEvent_(saved); // Los recordatorios los genera el activador cada minuto
     if (action === 'recipeUpsert' && !wasExisting) sendEntityPush_(saved, 'recipe');
     if (action === 'documentCreate') sendEntityPush_(saved, 'document');
     return json_({ ok: true, data: saved, error: null });
