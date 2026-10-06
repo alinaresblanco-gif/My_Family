@@ -1,5 +1,5 @@
-const FALLBACK_APP_VERSION = '2026.10.06.1';
-const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbxsGGJuH81WjEGQaJ03bkZTV4nny525o3PGIy9YhiA2Ah68K2G8nfJw451C7NZKuI9C/exec';
+const FALLBACK_APP_VERSION = '2026.10.06.4';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbx5IvmvLqtHyZQKwO9p0OKgze5E72QmsNGDQOkwhayr_-8vQr5Gx2xHG2KjuZpJUokX/exec';
 const FAMILY_ID = 'family-my-family';
 const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
 let currentAppVersion = null;
@@ -205,14 +205,20 @@ function applyRemoteData(data) {
   }
   if (Array.isArray(data.notifications) && data.notifications.length) {
     const localReadIds = new Set(notifications.filter(notification => notification.read).map(notification => String(notification.id)));
+    const localReadGroups = new Set(notifications.filter(notification => notification.read).map(notificationReadGroupKey));
     const remoteReadIds = new Set((data.notificationReads || [])
       .filter(notification => String(notification.recipientId) === getPushDeviceId() && (notification.read === true || String(notification.read).toUpperCase() === 'TRUE'))
       .map(notification => String(notification.notificationId)));
+    const remoteReadGroups = new Set(data.notifications
+      .filter(notification => remoteReadIds.has(String(notification.notificationId)))
+      .map(notification => notificationReadGroupKey({ ...notification, id: notification.notificationId })));
     notifications.splice(0, notifications.length, ...data.notifications.map(notification => {
       const id = String(notification.notificationId);
-      return { ...notification, id, read: localReadIds.has(id) || remoteReadIds.has(id) };
+      const groupKey = notificationReadGroupKey({ ...notification, id });
+      return { ...notification, id, read: localReadIds.has(id) || remoteReadIds.has(id) || localReadGroups.has(groupKey) || remoteReadGroups.has(groupKey) };
     }));
     saveNotifications();
+    notifications.filter(notification => notification.read && !remoteReadIds.has(String(notification.id)) && !remoteReadGroups.has(notificationReadGroupKey(notification))).forEach(saveNotificationRead);
   }
   if (data.settings) Object.assign(settings, { notifications: data.settings.notificationsEnabled !== false, sync: data.settings.syncEnabled !== false, eventReminders: data.settings.eventRemindersEnabled !== false, documentReminders: data.settings.documentRemindersEnabled !== false, defaultView: data.settings.defaultCalendarView || settings.defaultView, timeFormat: data.settings.timeFormat || settings.timeFormat, appearance: data.settings.appearance || settings.appearance, familyName: data.settings.familyName || settings.familyName, familyAvatar: data.settings.familyAvatar || settings.familyAvatar, pinEnabled: data.settings.pinEnabled === true });
 }
@@ -662,6 +668,14 @@ function notificationDateKey(notification) {
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
+function notificationReadGroupKey(notification) {
+  const id = String(notification.id || notification.notificationId || '');
+  const reminder = id.match(/^event-reminder-(.+)-(\d{4}-\d{2}-\d{2})-\d+$/);
+  if ((notification.type === 'event' || notification.entityType === 'event') && notification.entityId && reminder) {
+    return `event:${notification.entityId}:${reminder[2]}`;
+  }
+  return `notification:${id}`;
+}
 function todayNotifications() { return notifications.filter(notification => notificationDateKey(notification) === currentDateKey()); }
 function saveNotificationRead(notification) {
   if (!settings.sync) return;
@@ -676,6 +690,16 @@ function saveNotificationRead(notification) {
     if (!response?.ok) console.error('No se pudo sincronizar la lectura del aviso:', response?.error || 'sin respuesta del servidor');
   });
 }
+function markNotificationsRead(targetNotifications) {
+  const groupKeys = new Set(targetNotifications.map(notificationReadGroupKey));
+  notifications.filter(notification => groupKeys.has(notificationReadGroupKey(notification))).forEach(notification => {
+    if (notification.read) return;
+    notification.read = true;
+    saveNotificationRead(notification);
+  });
+  saveNotifications();
+  renderNotifications();
+}
 function renderNotifications() {
   const visibleNotifications = todayNotifications().filter(notification => !notification.read);
   const unreadCount = visibleNotifications.length;
@@ -688,10 +712,7 @@ function renderNotifications() {
   notificationList.querySelectorAll('[data-notification-id]').forEach(button => button.addEventListener('click', () => {
     const notification = notifications.find(item => String(item.id) === button.dataset.notificationId);
     if (!notification) return;
-    notification.read = true;
-    saveNotifications();
-    saveNotificationRead(notification);
-    renderNotifications();
+    markNotificationsRead([notification]);
   }));
 }
 function openNotificationsModal() { if (!settings.notifications) return; renderNotifications(); notificationsModal.classList.add('open'); notificationsModal.setAttribute('aria-hidden', 'false'); }
@@ -980,12 +1001,7 @@ document.querySelector('.notifications-close').addEventListener('click', closeNo
 notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
 document.querySelector('#mark-all-read').addEventListener('click', () => {
   const unreadNotifications = todayNotifications().filter(notification => !notification.read);
-  unreadNotifications.forEach(notification => {
-    notification.read = true;
-    saveNotificationRead(notification);
-  });
-  saveNotifications();
-  renderNotifications();
+  markNotificationsRead(unreadNotifications);
 });
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
 document.querySelector('#notifications-setting').addEventListener('change', async event => { settings.notifications = event.target.checked; saveSettings(); renderSettings(); if (!settings.notifications) { closeNotificationsModal(); await disablePushDevice(); } });

@@ -326,9 +326,16 @@ function sendFcm_(token, notification) {
 
 function sendNotification_(notification) {
   var readRows = rows_('notificaciones_lecturas');
+  var notificationRows = rows_('notificaciones', notification.familyId);
+  var notificationsById = {};
+  notificationRows.forEach(function(item) { notificationsById[String(item.notificationId)] = item; });
+  var notificationGroup = eventReminderReadGroup_(notification);
   var devices = rows_('dispositivos_push', notification.familyId).filter(function(device) {
     var alreadyRead = readRows.some(function(read) {
-      return String(read.notificationId) === String(notification.notificationId) && String(read.recipientId) === String(device.deviceId) && (read.read === true || String(read.read).toUpperCase() === 'TRUE');
+      if (String(read.recipientId) !== String(device.deviceId) || !(read.read === true || String(read.read).toUpperCase() === 'TRUE')) return false;
+      if (String(read.notificationId) === String(notification.notificationId)) return true;
+      var readNotification = notificationsById[String(read.notificationId)];
+      return notificationGroup && readNotification && eventReminderReadGroup_(readNotification) === notificationGroup;
     });
     return (device.active === true || String(device.active).toUpperCase() === 'TRUE') && device.fcmToken && !alreadyRead;
   });
@@ -356,6 +363,12 @@ function sendNotification_(notification) {
   });
   if (result.sent > 0) upsert_('notificaciones', { notificationId: notification.notificationId, familyId: notification.familyId, sentAt: now_(), updatedAt: now_() });
   return result;
+}
+
+function eventReminderReadGroup_(notification) {
+  if (!notification || (notification.type !== 'event' && notification.entityType !== 'event') || !notification.entityId) return '';
+  var match = String(notification.notificationId || notification.id || '').match(/^event-reminder-(.+)-(\d{4}-\d{2}-\d{2})-\d+$/);
+  return match ? String(notification.entityId) + ':' + match[2] : '';
 }
 
 function testDrive() {

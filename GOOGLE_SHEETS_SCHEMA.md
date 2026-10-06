@@ -164,7 +164,7 @@ Bandeja de avisos que aparece en el rombo de la cabecera.
 | `createdAt` | fecha-hora | Sí | Alta. |
 | `updatedAt` | fecha-hora | Sí | Última modificación. |
 
-El centro de avisos muestra los avisos sin leer del día. Al marcar uno como leído, desaparece del centro; los eventos asociados se siguen mostrando en Inicio hasta su fecha. La lectura se guarda por dispositivo para evitar nuevos envíos push a ese dispositivo sin cambiar el estado de lectura de los demás.
+El centro de avisos muestra los avisos sin leer del día. Al marcar uno como leído, desaparece del centro; los eventos asociados se siguen mostrando en Inicio hasta su fecha. En los recordatorios de evento, leer un aviso silencia los demás avisos de la misma cita y fecha de ocurrencia. La lectura se guarda por dispositivo para evitar nuevos envíos push a ese dispositivo sin cambiar el estado de lectura de los demás.
 
 ### 2.7 `notificaciones_lecturas`
 
