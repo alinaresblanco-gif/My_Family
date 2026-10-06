@@ -164,7 +164,7 @@ Bandeja de avisos que aparece en el rombo de la cabecera.
 | `createdAt` | fecha-hora | Sí | Alta. |
 | `updatedAt` | fecha-hora | Sí | Última modificación. |
 
-El estado leído no debe ser único para toda la familia si cada móvil puede leer de forma independiente. Para eso se usa `notificaciones_lecturas`.
+El centro de avisos muestra los avisos sin leer del día. Al marcar uno como leído, desaparece del centro; los eventos asociados se siguen mostrando en Inicio hasta su fecha. La lectura se guarda por dispositivo para evitar nuevos envíos push a ese dispositivo sin cambiar el estado de lectura de los demás.
 
 ### 2.7 `notificaciones_lecturas`
 
@@ -179,7 +179,7 @@ Estado de lectura por usuario o dispositivo.
 | `createdAt` | fecha-hora | Sí | Alta de la relación. |
 | `updatedAt` | fecha-hora | Sí | Último cambio. |
 
-Clave recomendada: combinación `notificationId + recipientId`.
+Clave recomendada: combinación `notificationId + recipientId`. El `bootstrap` recibe `deviceId` para devolver las lecturas de ese dispositivo; `notificationRead` las crea o actualiza, y el envío programado excluye los dispositivos que ya hayan leído el aviso.
 
 ### 2.8 `dispositivos_push`
 
@@ -290,7 +290,7 @@ familias 1 ─── N sincronizaciones
 
 Todas las peticiones deben comprobar `familyId`, validar campos y devolver JSON con `{ ok, data, error }`.
 
-- `GET ?action=bootstrap&familyId=...`: devuelve familia, miembros, ajustes y cambios recientes.
+- `GET ?action=bootstrap&familyId=...&deviceId=...`: devuelve familia, miembros, ajustes, avisos y lecturas del dispositivo.
 - `GET ?action=events&from=...&to=...`: eventos del rango de fechas.
 - `POST ?action=eventUpsert`: crea o actualiza un evento.
 - `POST ?action=eventDelete`: borrado lógico de evento.
@@ -303,7 +303,7 @@ Todas las peticiones deben comprobar `familyId`, validar campos y devolver JSON 
 - `POST ?action=memberUpsert`: crea o actualiza un miembro.
 - `GET ?action=settings`: devuelve ajustes familiares.
 - `POST ?action=settingsUpdate`: actualiza preferencias.
-- `GET ?action=notifications`: devuelve avisos y lecturas del destinatario.
+- `GET ?action=notifications`: devuelve la lista de avisos; `bootstrap` devuelve además las lecturas del dispositivo indicado por `deviceId`.
 - `POST ?action=notificationRead`: marca un aviso leído o no leído.
 - `POST ?action=pushSubscribe`: registra o renueva el `fcmToken` del dispositivo.
 - `POST ?action=pushUnsubscribe`: desactiva un dispositivo.

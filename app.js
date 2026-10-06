@@ -1,4 +1,4 @@
-const FALLBACK_APP_VERSION = '2026.09.09.2';
+const FALLBACK_APP_VERSION = '2026.10.06.1';
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyeU325qC0fgjgvydl5Kc4SEoFRKcIBWPUzqEM48B38bn_-Wu2eHjDuat5Jh1hAUgBT/exec';
 const FAMILY_ID = 'family-my-family';
 const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
@@ -203,12 +203,22 @@ function applyRemoteData(data) {
     documents.splice(0, documents.length, ...remoteDocs);
     saveDocuments();
   }
-  if (data.notifications?.length) notifications.splice(0, notifications.length, ...data.notifications.map(notification => ({ ...notification, id: notification.notificationId, read: false })));
+  if (Array.isArray(data.notifications) && data.notifications.length) {
+    const localReadIds = new Set(notifications.filter(notification => notification.read).map(notification => String(notification.id)));
+    const remoteReadIds = new Set((data.notificationReads || [])
+      .filter(notification => String(notification.recipientId) === getPushDeviceId() && (notification.read === true || String(notification.read).toUpperCase() === 'TRUE'))
+      .map(notification => String(notification.notificationId)));
+    notifications.splice(0, notifications.length, ...data.notifications.map(notification => {
+      const id = String(notification.notificationId);
+      return { ...notification, id, read: localReadIds.has(id) || remoteReadIds.has(id) };
+    }));
+    saveNotifications();
+  }
   if (data.settings) Object.assign(settings, { notifications: data.settings.notificationsEnabled !== false, sync: data.settings.syncEnabled !== false, eventReminders: data.settings.eventRemindersEnabled !== false, documentReminders: data.settings.documentRemindersEnabled !== false, defaultView: data.settings.defaultCalendarView || settings.defaultView, timeFormat: data.settings.timeFormat || settings.timeFormat, appearance: data.settings.appearance || settings.appearance, familyName: data.settings.familyName || settings.familyName, familyAvatar: data.settings.familyAvatar || settings.familyAvatar, pinEnabled: data.settings.pinEnabled === true });
 }
 async function connectSheets() {
   if (!settings.sync) return;
-  const response = await apiRequest('bootstrap');
+  const response = await apiRequest('bootstrap', { deviceId: getPushDeviceId() });
   if (!response?.ok) return;
   let data = response.data || {};
   const hadLocalData = Boolean(savedEvents || savedMembers || savedRecipes || savedDocuments);
@@ -216,7 +226,7 @@ async function connectSheets() {
   if (!data.events?.length && savedEvents) {
     const localEvents = JSON.parse(savedEvents);
     await Promise.all(localEvents.map(event => apiRequest('eventUpsert', { data: eventPayload(event) })));
-    const migrated = await apiRequest('bootstrap');
+    const migrated = await apiRequest('bootstrap', { deviceId: getPushDeviceId() });
     if (migrated?.ok) data = migrated.data || {};
   }
   if (!hadRemoteData && !savedEvents && hadLocalData) { saveMembers(); saveRecipes(); }
@@ -228,7 +238,7 @@ async function refreshFromSheets() {
   if (!settings.sync || document.visibilityState === 'hidden' || remoteSyncInProgress) return;
   remoteSyncInProgress = true;
   try {
-    const response = await apiRequest('bootstrap');
+    const response = await apiRequest('bootstrap', { deviceId: getPushDeviceId() });
     if (!response?.ok) return;
     applyRemoteData(response.data || {});
     renderMemberFilters();
@@ -238,6 +248,7 @@ async function refreshFromSheets() {
     renderDocuments();
     renderRecipes();
     buildCalendar();
+    renderNotifications();
   } finally {
     remoteSyncInProgress = false;
   }
@@ -652,19 +663,34 @@ function notificationDateKey(notification) {
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
 function todayNotifications() { return notifications.filter(notification => notificationDateKey(notification) === currentDateKey()); }
+function saveNotificationRead(notification) {
+  if (!settings.sync) return;
+  apiRequest('notificationRead', {
+    data: {
+      notificationId: String(notification.id),
+      recipientId: getPushDeviceId(),
+      read: true,
+      readAt: new Date().toISOString()
+    }
+  }).then(response => {
+    if (!response?.ok) console.error('No se pudo sincronizar la lectura del aviso:', response?.error || 'sin respuesta del servidor');
+  });
+}
 function renderNotifications() {
-  const visibleNotifications = todayNotifications();
-  const unreadCount = visibleNotifications.filter(notification => !notification.read).length;
+  const visibleNotifications = todayNotifications().filter(notification => !notification.read);
+  const unreadCount = visibleNotifications.length;
   const count = document.querySelector('#notification-count');
   if (!settings.notifications) { count.hidden = true; return; }
   count.textContent = unreadCount;
   count.hidden = unreadCount === 0;
-  notificationList.innerHTML = visibleNotifications.length ? visibleNotifications.map(notification => `<button class="notification-item ${notification.read ? '' : 'unread'}" data-notification-id="${notification.id}"><i class="notification-dot"></i><span><strong>${notification.title}</strong><small>${notification.message}</small></span></button>`).join('') : '<p class="notification-empty">No tienes notificaciones para hoy.</p>';
+  document.querySelector('#mark-all-read').disabled = unreadCount === 0;
+  notificationList.innerHTML = visibleNotifications.length ? visibleNotifications.map(notification => `<button class="notification-item unread" data-notification-id="${notification.id}"><i class="notification-dot"></i><span><strong>${notification.title}</strong><small>${notification.message}</small></span></button>`).join('') : '<p class="notification-empty">No tienes avisos sin leer para hoy.</p>';
   notificationList.querySelectorAll('[data-notification-id]').forEach(button => button.addEventListener('click', () => {
     const notification = notifications.find(item => String(item.id) === button.dataset.notificationId);
     if (!notification) return;
-    notification.read = !notification.read;
+    notification.read = true;
     saveNotifications();
+    saveNotificationRead(notification);
     renderNotifications();
   }));
 }
@@ -952,7 +978,15 @@ memberForm.addEventListener('submit', event => {
 document.querySelector('#notifications-button').addEventListener('click', openNotificationsModal);
 document.querySelector('.notifications-close').addEventListener('click', closeNotificationsModal);
 notificationsModal.addEventListener('click', event => { if (event.target === notificationsModal) closeNotificationsModal(); });
-document.querySelector('#mark-all-read').addEventListener('click', () => { notifications.forEach(notification => { notification.read = true; }); saveNotifications(); renderNotifications(); });
+document.querySelector('#mark-all-read').addEventListener('click', () => {
+  const unreadNotifications = todayNotifications().filter(notification => !notification.read);
+  unreadNotifications.forEach(notification => {
+    notification.read = true;
+    saveNotificationRead(notification);
+  });
+  saveNotifications();
+  renderNotifications();
+});
 document.querySelector('#enable-device-notifications').addEventListener('click', enableDeviceNotifications);
 document.querySelector('#notifications-setting').addEventListener('change', async event => { settings.notifications = event.target.checked; saveSettings(); renderSettings(); if (!settings.notifications) { closeNotificationsModal(); await disablePushDevice(); } });
 document.querySelector('#sync-setting').addEventListener('change', event => { settings.sync = event.target.checked; saveSettings(); renderSettings(); });

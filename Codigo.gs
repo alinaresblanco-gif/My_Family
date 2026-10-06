@@ -22,7 +22,11 @@ function handle_(action, input) {
       ensureFamily_(familyId);
       cache.put('schema-ready:' + familyId, '1', 21600);
     }
-    if (action === 'bootstrap') return json_({ ok: true, data: { family: rows_('familias', familyId)[0] || null, members: rows_('miembros', familyId), events: rows_('eventos', familyId), settings: rows_('ajustes_familia', familyId)[0] || null, recipes: rows_('recetas', familyId), documents: rows_('documentos', familyId), notifications: rows_('notificaciones', familyId) }, error: null });
+    if (action === 'bootstrap') {
+      var notificationReads = rows_('notificaciones_lecturas').filter(function(read) { return String(read.recipientId) === String(input.deviceId || ''); });
+      return json_({ ok: true, data: { family: rows_('familias', familyId)[0] || null, members: rows_('miembros', familyId), events: rows_('eventos', familyId), settings: rows_('ajustes_familia', familyId)[0] || null, recipes: rows_('recetas', familyId), documents: rows_('documentos', familyId), notifications: rows_('notificaciones', familyId), notificationReads: notificationReads }, error: null });
+    }
+    if (action === 'notificationRead') return json_({ ok: true, data: upsertNotificationRead_(input.data || input, familyId), error: null });
     if (action === 'pushSubscribe') {
       var subscription = input.data || input;
       if (!subscription.deviceId || !subscription.fcmToken) throw new Error('Faltan deviceId o fcmToken');
@@ -49,7 +53,6 @@ function handle_(action, input) {
       deleteRow_(table, deleteId);
       return json_({ ok: true, data: { deleted: true, id: deleteId }, error: null });
     }
-    if (action === 'notificationRead') return json_({ ok: true, data: upsert_('notificaciones_lecturas', input.data || input), error: null });
     if (action === 'settingsUpdate') table = 'ajustes_familia';
     var data = input.data || input;
     data.familyId = familyId;
@@ -176,6 +179,52 @@ function rows_(table, familyId) {
   });
 }
 
+function upsertNotificationRead_(data, familyId) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    var notificationId = String(data.notificationId || '');
+    var recipientId = String(data.recipientId || '');
+    if (!notificationId || !recipientId) throw new Error('Faltan notificationId o recipientId');
+    var notification = rows_('notificaciones', familyId).filter(function(item) { return String(item.notificationId) === notificationId; })[0];
+    if (!notification) throw new Error('No existe el aviso para esta familia');
+
+    var sheet = sheet_('notificaciones_lecturas');
+    var headers = headers_(sheet);
+    ['notificationId', 'recipientId', 'read', 'readAt', 'createdAt', 'updatedAt'].forEach(function(header) {
+      if (headers.indexOf(header) < 0) throw new Error('Falta la columna ' + header + ' en notificaciones_lecturas');
+    });
+    var values = sheet.getDataRange().getValues();
+    var notificationIndex = headers.indexOf('notificationId');
+    var recipientIndex = headers.indexOf('recipientId');
+    var rowIndex = -1;
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][notificationIndex]) === notificationId && String(values[i][recipientIndex]) === recipientId) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+    var now = now_();
+    var readData = {
+      notificationId: notificationId,
+      recipientId: recipientId,
+      read: data.read === true || String(data.read).toUpperCase() === 'TRUE',
+      readAt: data.readAt || now,
+      createdAt: rowIndex > 0 ? values[rowIndex - 1][headers.indexOf('createdAt')] : now,
+      updatedAt: now
+    };
+    var row = rowIndex > 0 ? values[rowIndex - 1] : headers.map(function() { return ''; });
+    headers.forEach(function(header, index) {
+      if (Object.prototype.hasOwnProperty.call(readData, header)) row[index] = readData[header];
+    });
+    if (rowIndex > 0) sheet.getRange(rowIndex, 1, 1, headers.length).setValues([row]);
+    else sheet.appendRow(row);
+    return readData;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function format_(header, value) {
   if (!(value instanceof Date)) return value;
   var zone = Session.getScriptTimeZone() || 'Europe/Madrid';
@@ -276,7 +325,13 @@ function sendFcm_(token, notification) {
 }
 
 function sendNotification_(notification) {
-  var devices = rows_('dispositivos_push', notification.familyId).filter(function(device) { return (device.active === true || String(device.active).toUpperCase() === 'TRUE') && device.fcmToken; });
+  var readRows = rows_('notificaciones_lecturas');
+  var devices = rows_('dispositivos_push', notification.familyId).filter(function(device) {
+    var alreadyRead = readRows.some(function(read) {
+      return String(read.notificationId) === String(notification.notificationId) && String(read.recipientId) === String(device.deviceId) && (read.read === true || String(read.read).toUpperCase() === 'TRUE');
+    });
+    return (device.active === true || String(device.active).toUpperCase() === 'TRUE') && device.fcmToken && !alreadyRead;
+  });
   var result = { notificationId: notification.notificationId, devices: devices.length, sent: 0, failed: 0 };
   devices.forEach(function(device) {
     var delivery = { notificationId: notification.notificationId, deviceId: device.deviceId, status: 'queued', attempts: 1, queuedAt: now_(), updatedAt: now_() };
