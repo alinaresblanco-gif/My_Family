@@ -2,7 +2,7 @@ importScripts('./firebase-config.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
 
-const CACHE_NAME = 'my-family-v2026.10.6.8';
+const CACHE_NAME = 'my-family-v2026.10.6.9';
 const APP_FILES = [
   './',
   './index.html',
@@ -22,6 +22,7 @@ if (firebaseConfigured) {
     self.registration.showNotification(data.title || 'My Family', {
       body: data.body || 'Tienes una nueva notificación.',
       icon: data.icon || './imagenes/logo-myfamily-trans-ok.png',
+      tag: data.notificationId || undefined,
       data: { url: data.url || './', notificationId: data.notificationId || '' }
     });
   });

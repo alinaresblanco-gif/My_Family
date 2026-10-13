@@ -256,7 +256,9 @@ function ensureSchema_() {
   var requiredColumns = {
     eventos: ['endDate', 'reminderEnabled', 'reminderMinutesBefore', 'repeatFrequency', 'calendarEventId', 'calendarId', 'calendarSyncStatus', 'calendarSyncError'],
     miembros: ['email', 'calendarEnabled'],
-    dispositivos_push: ['fcmToken']
+    dispositivos_push: ['fcmToken'],
+    notificaciones: ['type', 'title', 'message', 'entityType', 'entityId', 'scheduledAt', 'sentAt', 'expiresAt', 'createdAt', 'updatedAt'],
+    notificaciones_lecturas: ['notificationId', 'recipientId', 'read', 'readAt', 'createdAt', 'updatedAt']
   };
   Object.keys(requiredColumns).forEach(function(table) {
     var sheet = sheet_(table);
@@ -325,6 +327,8 @@ function sendFcm_(token, notification) {
 }
 
 function sendNotification_(notification) {
+  var result = { notificationId: notification.notificationId, devices: 0, sent: 0, failed: 0 };
+  if (!claimNotification_(notification)) { result.skipped = true; return result; }
   var readRows = rows_('notificaciones_lecturas');
   var notificationRows = rows_('notificaciones', notification.familyId);
   var notificationsById = {};
@@ -339,7 +343,7 @@ function sendNotification_(notification) {
     });
     return (device.active === true || String(device.active).toUpperCase() === 'TRUE') && device.fcmToken && !alreadyRead;
   });
-  var result = { notificationId: notification.notificationId, devices: devices.length, sent: 0, failed: 0 };
+  result.devices = devices.length;
   devices.forEach(function(device) {
     var delivery = { notificationId: notification.notificationId, deviceId: device.deviceId, status: 'queued', attempts: 1, queuedAt: now_(), updatedAt: now_() };
     try {
@@ -361,8 +365,19 @@ function sendNotification_(notification) {
     }
     upsert_('envios_push', delivery);
   });
-  if (result.sent > 0) upsert_('notificaciones', { notificationId: notification.notificationId, familyId: notification.familyId, sentAt: now_(), updatedAt: now_() });
   return result;
+}
+
+// Marca el aviso como enviado ANTES de enviarlo y verifica que se guardó, para no repetirlo cada minuto.
+function claimNotification_(notification) {
+  var id = String(notification.notificationId);
+  var current = rows_('notificaciones').filter(function(item) { return String(item.notificationId) === id; })[0];
+  if (current && current.sentAt) return false;
+  upsert_('notificaciones', { notificationId: id, familyId: notification.familyId, sentAt: now_(), updatedAt: now_() });
+  SpreadsheetApp.flush();
+  var verified = rows_('notificaciones').filter(function(item) { return String(item.notificationId) === id; })[0];
+  if (!verified || !verified.sentAt) { console.error('No se pudo registrar sentAt para ' + id + '; se omite el envio.'); return false; }
+  return true;
 }
 
 function eventReminderReadGroup_(notification) {
@@ -638,7 +653,13 @@ function eventReminderText_(event, occurrence, currentTime, members) {
   };
 }
 
-var EVENT_REMINDER_OFFSETS_MINUTES = [1440, 300];
+// Solo se avisa con la opción de recordatorio que tenga configurada la cita.
+function eventReminderOffsets_(event) {
+  var enabled = event.reminderEnabled === true || String(event.reminderEnabled).toUpperCase() === 'TRUE';
+  if (!enabled || event.reminderMinutesBefore === '' || event.reminderMinutesBefore == null) return [];
+  var minutes = Number(event.reminderMinutesBefore);
+  return isNaN(minutes) || minutes < 0 ? [] : [minutes];
+}
 
 function syncEventReminder_(event, currentTime, context) {
   currentTime = currentTime || new Date();
@@ -656,7 +677,7 @@ function syncEventReminder_(event, currentTime, context) {
   var zone = Session.getScriptTimeZone() || 'Europe/Madrid';
   var results = [];
   var keepIds = [];
-  EVENT_REMINDER_OFFSETS_MINUTES.forEach(function(minutesBefore) {
+  eventReminderOffsets_(event).forEach(function(minutesBefore) {
     var notificationId = 'event-reminder-' + event.eventId + '-' + occurrence.date + '-' + minutesBefore;
     keepIds.push(notificationId);
     var existing = existingRows.filter(function(notification) { return String(notification.notificationId) === notificationId; })[0];
@@ -699,6 +720,7 @@ function processScheduledNotifications() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return [];
   try {
+    ensureSchema_();
     syncEventReminders_();
     return sendDueNotifications_();
   } finally {
@@ -708,10 +730,23 @@ function processScheduledNotifications() {
 
 function sendDueNotifications_() {
   var currentTime = Date.now();
-  return rows_('notificaciones').filter(function(notification) {
+  var pendingEvents = {};
+  rows_('eventos').forEach(function(event) { if (String(event.status) === 'pending') pendingEvents[String(event.eventId)] = true; });
+  var due = [];
+  rows_('notificaciones').forEach(function(notification) {
     var active = !notification.expiresAt || new Date(notification.expiresAt).getTime() > currentTime;
-    return active && notification.scheduledAt && !notification.sentAt && new Date(notification.scheduledAt).getTime() <= currentTime;
-  }).map(sendNotification_);
+    if (!active || !notification.scheduledAt || notification.sentAt) return;
+    var scheduledTime = new Date(notification.scheduledAt).getTime();
+    if (scheduledTime > currentTime) return;
+    var orphanEvent = notification.entityType === 'event' && !pendingEvents[String(notification.entityId)];
+    var stale = scheduledTime < currentTime - 60 * 60000;
+    if (orphanEvent || stale) {
+      upsert_('notificaciones', { notificationId: notification.notificationId, familyId: notification.familyId, expiresAt: now_(), updatedAt: now_() });
+      return;
+    }
+    due.push(notification);
+  });
+  return due.map(sendNotification_);
 }
 
 function installNotificationTrigger() {

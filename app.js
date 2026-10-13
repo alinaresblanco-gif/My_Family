@@ -1,4 +1,4 @@
-const FALLBACK_APP_VERSION = '2026.10.06.4';
+const FALLBACK_APP_VERSION = '2026.10.06.5';
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbx5IvmvLqtHyZQKwO9p0OKgze5E72QmsNGDQOkwhayr_-8vQr5Gx2xHG2KjuZpJUokX/exec';
 const FAMILY_ID = 'family-my-family';
 const PUSH_DEVICE_ID_KEY = 'my-family-push-device-id';
@@ -768,7 +768,7 @@ async function registerPushDevice(requestPermission = false) {
     foregroundMessagingBound = true;
     messaging.onMessage(payload => {
       const data = payload.data || {};
-      registration.showNotification(data.title || 'My Family', { body: data.body || 'Tienes una nueva notificación.', icon: data.icon || 'imagenes/logo-myfamily-trans-ok.png', data: { url: data.url || './', notificationId: data.notificationId || '' } });
+      registration.showNotification(data.title || 'My Family', { body: data.body || 'Tienes una nueva notificación.', icon: data.icon || 'imagenes/logo-myfamily-trans-ok.png', tag: data.notificationId || undefined, data: { url: data.url || './', notificationId: data.notificationId || '' } });
     });
   }
   return registration;
